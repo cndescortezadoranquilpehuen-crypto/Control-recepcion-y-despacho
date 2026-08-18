@@ -12,7 +12,52 @@ const STORAGE_KEYS = {
   AUTH: 'portal_current_user'
 };
 
+type DataListener = () => void;
+
 export class StorageService {
+  private static listeners: Set<DataListener> = new Set();
+
+  static subscribe(listener: DataListener): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  private static notifyListeners(): void {
+    this.listeners.forEach(fn => {
+      try { fn(); } catch (e) { console.error('Listener error:', e); }
+    });
+  }
+
+  // --- INITIALIZE ALL FROM FIRESTORE ---
+  static async syncWithFirestore(): Promise<void> {
+    try {
+      const [tickets, patentes, conductores, productos] = await Promise.all([
+        FirestoreService.fetchTicketsOnce(),
+        FirestoreService.fetchPatentesOnce(),
+        FirestoreService.fetchConductoresOnce(),
+        FirestoreService.fetchProductosOnce()
+      ]);
+
+      if (tickets.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+      }
+      if (patentes.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.PATENTES, JSON.stringify(patentes));
+      }
+      if (conductores.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.CONDUCTORES, JSON.stringify(conductores));
+      }
+      if (productos.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(productos));
+      }
+      this.notifyListeners();
+    } catch (err) {
+      console.warn('Sync with Firestore error:', err);
+    }
+  }
+
   // --- PATENTES ---
   static getPatentes(): PatenteItem[] {
     try {
@@ -22,7 +67,8 @@ export class StorageService {
         FirestoreService.savePatentesBatch(INITIAL_PATENTES).catch(() => {});
         return INITIAL_PATENTES;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PATENTES;
     } catch {
       return INITIAL_PATENTES;
     }
@@ -30,6 +76,7 @@ export class StorageService {
 
   static savePatentes(items: PatenteItem[]): void {
     localStorage.setItem(STORAGE_KEYS.PATENTES, JSON.stringify(items));
+    this.notifyListeners();
     FirestoreService.savePatentesBatch(items).catch(err => {
       console.warn('Could not sync patentes to Firestore:', err);
     });
@@ -44,7 +91,8 @@ export class StorageService {
         FirestoreService.saveConductoresBatch(INITIAL_CONDUCTORES).catch(() => {});
         return INITIAL_CONDUCTORES;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_CONDUCTORES;
     } catch {
       return INITIAL_CONDUCTORES;
     }
@@ -52,6 +100,7 @@ export class StorageService {
 
   static saveConductores(items: ConductorItem[]): void {
     localStorage.setItem(STORAGE_KEYS.CONDUCTORES, JSON.stringify(items));
+    this.notifyListeners();
     FirestoreService.saveConductoresBatch(items).catch(err => {
       console.warn('Could not sync conductores to Firestore:', err);
     });
@@ -66,7 +115,8 @@ export class StorageService {
         FirestoreService.saveProductosBatch(INITIAL_PRODUCTOS).catch(() => {});
         return INITIAL_PRODUCTOS;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PRODUCTOS;
     } catch {
       return INITIAL_PRODUCTOS;
     }
@@ -74,6 +124,7 @@ export class StorageService {
 
   static saveProductos(items: ProductoItem[]): void {
     localStorage.setItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(items));
+    this.notifyListeners();
     FirestoreService.saveProductosBatch(items).catch(err => {
       console.warn('Could not sync productos to Firestore:', err);
     });
@@ -88,7 +139,8 @@ export class StorageService {
         INITIAL_TICKETS.forEach(t => FirestoreService.saveTicket(t).catch(() => {}));
         return INITIAL_TICKETS;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : INITIAL_TICKETS;
     } catch {
       return INITIAL_TICKETS;
     }
@@ -106,6 +158,7 @@ export class StorageService {
       tickets.unshift(updatedItem);
     }
     localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+    this.notifyListeners();
     FirestoreService.saveTicket(updatedItem).catch(err => {
       console.warn('Could not sync ticket to Firestore:', err);
     });
@@ -114,6 +167,7 @@ export class StorageService {
   static deleteTicket(id: string): void {
     const tickets = this.getTickets().filter(t => t.id !== id);
     localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+    this.notifyListeners();
     FirestoreService.deleteTicket(id).catch(err => {
       console.warn('Could not delete ticket from Firestore:', err);
     });
@@ -128,7 +182,8 @@ export class StorageService {
         INITIAL_USERS.forEach(u => FirestoreService.saveUser(u).catch(() => {}));
         return INITIAL_USERS;
       }
-      return JSON.parse(data);
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_USERS;
     } catch {
       return INITIAL_USERS;
     }
@@ -143,6 +198,7 @@ export class StorageService {
       users.push(user);
     }
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    this.notifyListeners();
     FirestoreService.saveUser(user).catch(err => {
       console.warn('Could not sync user to Firestore:', err);
     });
@@ -151,13 +207,14 @@ export class StorageService {
   static deleteUser(id: string): void {
     const users = this.getUsers().filter(u => u.id !== id);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+    this.notifyListeners();
   }
 
   // --- AUTH CURRENT USER ---
   static getCurrentUser(): UserAccount | null {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.AUTH);
-      if (!data) return INITIAL_USERS[1]; // default to reception user for instant use
+      if (!data) return INITIAL_USERS[1]; // default to reception user
       return JSON.parse(data);
     } catch {
       return INITIAL_USERS[1];
@@ -181,7 +238,7 @@ export class StorageService {
   }> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         try {
           const buffer = e.target?.result;
           const workbook = XLSX.read(buffer, { type: 'binary' });
@@ -196,7 +253,6 @@ export class StorageService {
             const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
             const sNameLower = sheetName.toLowerCase();
 
-            // Try to identify sheet type by name or by column headers
             if (sNameLower.includes('patente') || sNameLower.includes('camion') || sNameLower.includes('vehiculo')) {
               parsedPatentes = this.extractPatentesFromRows(rawJson);
             } else if (sNameLower.includes('conductor') || sNameLower.includes('chofer') || sNameLower.includes('personal')) {
@@ -204,7 +260,6 @@ export class StorageService {
             } else if (sNameLower.includes('producto') || sNameLower.includes('especie') || sNameLower.includes('madera')) {
               parsedProductos = this.extractProductosFromRows(rawJson);
             } else {
-              // Inspect header row
               if (rawJson.length > 0) {
                 const header = rawJson[0].map((h: any) => String(h).toLowerCase()).join(' ');
                 if (header.includes('patente')) {
@@ -218,7 +273,7 @@ export class StorageService {
             }
           });
 
-          // If no specific sheet matched, try first sheet for any structure
+          // Fallback to first sheet
           if (parsedPatentes.length === 0 && parsedConductores.length === 0 && parsedProductos.length === 0 && workbook.SheetNames.length > 0) {
             const firstSheet = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1, defval: '' }) as any[];
             parsedPatentes = this.extractPatentesFromRows(firstSheet);
@@ -243,7 +298,6 @@ export class StorageService {
     const list: PatenteItem[] = [];
     if (rows.length < 2) return list;
     
-    // Find column indexes
     let colCamion = 0, colCarro = 1, colSigla = 2, colTransp = 3;
     const header = rows[0].map((c: any) => String(c).toLowerCase().trim());
     header.forEach((h: string, idx: number) => {

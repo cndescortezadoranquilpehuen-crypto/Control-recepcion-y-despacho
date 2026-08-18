@@ -104,12 +104,22 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const productInputRef = useRef<HTMLInputElement>(null);
 
-  // Load databases on mount
+  // Load databases on mount and on modal open, syncing in real-time
   useEffect(() => {
-    setPatentesDb(StorageService.getPatentes());
-    setConductoresDb(StorageService.getConductores());
-    setProductosDb(StorageService.getProductos());
-  }, []);
+    const updateFromStorage = () => {
+      setPatentesDb(StorageService.getPatentes());
+      setConductoresDb(StorageService.getConductores());
+      setProductosDb(StorageService.getProductos());
+    };
+    updateFromStorage();
+
+    const unsubscribe = StorageService.subscribe(updateFromStorage);
+    StorageService.syncWithFirestore();
+
+    return () => {
+      unsubscribe();
+    };
+  }, [isOpen]);
 
   // Filter conductors strictly by the current transportista
   const availableConductores = useMemo(() => {
@@ -118,6 +128,29 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     const filtered = conductoresDb.filter(c => c.transportista && c.transportista.trim().toUpperCase() === cleanTransp);
     return filtered.length > 0 ? filtered : conductoresDb;
   }, [conductoresDb, transportista]);
+
+  // Filtered patentes for real-time search & dropdown
+  const filteredPatentes = useMemo(() => {
+    const query = patenteCamion.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (!query) return [];
+    return patentesDb.filter(p => {
+      const pCamion = (p.patenteCamion || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const pSigla = (p.siglaCamion || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const pTransp = (p.transportista || '').toUpperCase();
+      return pCamion.includes(query) || pSigla.includes(query) || pTransp.includes(query);
+    }).slice(0, 15);
+  }, [patentesDb, patenteCamion]);
+
+  // Filtered conductors for real-time search & dropdown
+  const filteredConductores = useMemo(() => {
+    const query = rutConductor.trim().toUpperCase().replace(/[^0-9Kk]/g, '');
+    if (!query) return [];
+    return availableConductores.filter(c => {
+      const cRut = (c.rutConductor || '').toUpperCase().replace(/[^0-9Kk]/g, '');
+      const cNom = (c.nombreConductor || '').toUpperCase();
+      return cRut.includes(query) || cNom.includes(query);
+    }).slice(0, 15);
+  }, [availableConductores, rutConductor]);
 
   // Filter products by selected species
   const speciesProducts = useMemo(() => {
@@ -137,10 +170,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     const val = inputVal.toUpperCase();
     setPatenteCamion(val);
     
-    const match = patentesDb.find(p => p.patenteCamion.toUpperCase() === val);
+    const cleanInput = val.trim().replace(/[^A-Z0-9]/g, '');
+    const match = patentesDb.find(p => {
+      const pClean = (p.patenteCamion || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return pClean === cleanInput;
+    });
+
     if (match) {
-      setSiglaCamion(match.siglaCamion);
-      setTransportista(match.transportista);
+      setSiglaCamion(match.siglaCamion || match.patenteCamion);
+      setTransportista(match.transportista || 'GENERAL');
       if (!patenteCarro && match.patenteCarro) {
         setPatenteCarro(match.patenteCarro);
       }
@@ -157,8 +195,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
 
   const selectPatente = (item: PatenteItem) => {
     setPatenteCamion(item.patenteCamion);
-    setSiglaCamion(item.siglaCamion);
-    setTransportista(item.transportista);
+    setSiglaCamion(item.siglaCamion || item.patenteCamion);
+    setTransportista(item.transportista || 'GENERAL');
     setPatenteCarro(item.patenteCarro || '');
     setShowPatenteSuggestions(false);
   };
@@ -168,7 +206,12 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     const val = inputVal.toUpperCase();
     setRutConductor(val);
 
-    const match = availableConductores.find(c => c.rutConductor.toUpperCase() === val);
+    const cleanInput = val.trim().replace(/[^0-9Kk]/g, '');
+    const match = availableConductores.find(c => {
+      const cClean = (c.rutConductor || '').toUpperCase().replace(/[^0-9Kk]/g, '');
+      return cClean === cleanInput;
+    });
+
     if (match) {
       setNombreConductor(match.nombreConductor);
     }
@@ -319,16 +362,6 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       onPrintThermal(currentTicket);
     }
   };
-
-  const filteredPatentes = patentesDb.filter(p => 
-    p.patenteCamion.includes(patenteCamion.trim().toUpperCase()) ||
-    p.siglaCamion.includes(patenteCamion.trim().toUpperCase())
-  ).slice(0, 6);
-
-  const filteredConductores = availableConductores.filter(c =>
-    c.rutConductor.includes(rutConductor.trim().toUpperCase()) ||
-    c.nombreConductor.toUpperCase().includes(rutConductor.trim().toUpperCase())
-  ).slice(0, 6);
 
   return (
     <>

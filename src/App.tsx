@@ -18,7 +18,8 @@ import {
   CheckCircle2, 
   AlertCircle,
   Clock,
-  Printer
+  Printer,
+  MonitorDown
 } from 'lucide-react';
 
 import { FilterState, TicketItem, TicketType, UserAccount } from './types';
@@ -32,6 +33,7 @@ import { DatabaseModule } from './components/DatabaseModule';
 import { UserManagement } from './components/UserManagementModal';
 import { LoginModal } from './components/LoginModal';
 import { ThermalReceiptModal } from './components/ThermalReceipt';
+import { DesktopInstallModal } from './components/DesktopInstallModal';
 
 export default function App() {
   const [currentTab, setCurrentTab] = useState<string>('recepcion');
@@ -48,6 +50,10 @@ export default function App() {
   const [ticketToPrint, setTicketToPrint] = useState<TicketItem | null>(null);
   const [isPrintModalOpen, setIsPrintModalOpen] = useState<boolean>(false);
 
+  // Desktop PWA Install state
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState<boolean>(false);
+  const [deferredInstallPrompt, setDeferredInstallPrompt] = useState<any>(null);
+
   // Notification toast
   const [notification, setNotification] = useState<string | null>(null);
 
@@ -63,26 +69,68 @@ export default function App() {
     textoBusqueda: ''
   });
 
-  // Load initial session & tickets with real-time Firebase subscription
+  // Load initial session & tickets with real-time Firebase subscriptions
   useEffect(() => {
     testFirestoreConnection();
     const user = StorageService.getCurrentUser();
     setCurrentUser(user);
     setTickets(StorageService.getTickets());
+    
     if (user && user.rol !== 'admin' && (currentTab === 'database' || currentTab === 'usuarios' || currentTab === 'inicio')) {
       setCurrentTab('recepcion');
     }
 
-    // Subscribe to real-time Firestore updates
-    const unsubscribe = FirestoreService.subscribeTickets((firestoreTickets) => {
+    // Capture PWA install prompt for Windows / Desktop
+    const handleBeforeInstall = (e: Event) => {
+      e.preventDefault();
+      setDeferredInstallPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+
+    // Initial sync with Firestore in background for all databases
+    StorageService.syncWithFirestore();
+
+    // Subscribe to real-time Firestore updates for Tickets
+    const unsubscribeTickets = FirestoreService.subscribeTickets((firestoreTickets) => {
       if (firestoreTickets && firestoreTickets.length > 0) {
         setTickets(firestoreTickets);
         localStorage.setItem('portal_tickets_db', JSON.stringify(firestoreTickets));
       }
     });
 
+    // Subscribe to real-time Firestore updates for Patentes
+    const unsubscribePatentes = FirestoreService.subscribePatentes((patentes) => {
+      if (patentes && patentes.length > 0) {
+        localStorage.setItem('portal_patentes_db', JSON.stringify(patentes));
+      }
+    });
+
+    // Subscribe to real-time Firestore updates for Conductores
+    const unsubscribeConductores = FirestoreService.subscribeConductores((conductores) => {
+      if (conductores && conductores.length > 0) {
+        localStorage.setItem('portal_conductores_db', JSON.stringify(conductores));
+      }
+    });
+
+    // Subscribe to real-time Firestore updates for Productos
+    const unsubscribeProductos = FirestoreService.subscribeProductos((productos) => {
+      if (productos && productos.length > 0) {
+        localStorage.setItem('portal_productos_db', JSON.stringify(productos));
+      }
+    });
+
+    // Subscribe to local storage service changes
+    const unsubscribeStorage = StorageService.subscribe(() => {
+      setTickets(StorageService.getTickets());
+    });
+
     return () => {
-      unsubscribe();
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+      unsubscribeTickets();
+      unsubscribePatentes();
+      unsubscribeConductores();
+      unsubscribeProductos();
+      unsubscribeStorage();
     };
   }, []);
 
@@ -94,6 +142,22 @@ export default function App() {
 
   const refreshTickets = () => {
     setTickets(StorageService.getTickets());
+  };
+
+  // Trigger native PWA install prompt
+  const handleNativeInstall = async () => {
+    if (deferredInstallPrompt) {
+      try {
+        deferredInstallPrompt.prompt();
+        const { outcome } = await deferredInstallPrompt.userChoice;
+        if (outcome === 'accepted') {
+          showToast('¡Instalación de la aplicación completada con éxito!');
+        }
+        setDeferredInstallPrompt(null);
+      } catch (err) {
+        console.error('Error triggering PWA install:', err);
+      }
+    }
   };
 
   // Filter tickets logic
@@ -118,27 +182,38 @@ export default function App() {
       }
       if (filters.numeroGiro) {
         const query = filters.numeroGiro.toLowerCase();
-        const matchGiro = t.numeroGiro && t.numeroGiro.toLowerCase().includes(query);
-        const matchGuia = t.numeroGuia && t.numeroGuia.toLowerCase().includes(query);
-        if (!matchGiro && !matchGuia) return false;
+        const matchesGiro = t.numeroGiro && t.numeroGiro.toLowerCase().includes(query);
+        const matchesGuia = t.numeroGuia && t.numeroGuia.toLowerCase().includes(query);
+        if (!matchesGiro && !matchesGuia) return false;
       }
       if (filters.grua && t.grua && !t.grua.toLowerCase().includes(filters.grua.toLowerCase())) {
         return false;
       }
+
+      // Quick Search text across multiple fields
+      if (filters.textoBusqueda) {
+        const q = filters.textoBusqueda.toLowerCase();
+        const matches = 
+          (t.numeroGuia && t.numeroGuia.toLowerCase().includes(q)) ||
+          (t.numeroTicket && t.numeroTicket.toLowerCase().includes(q)) ||
+          (t.patenteCamion && t.patenteCamion.toLowerCase().includes(q)) ||
+          (t.patenteCarro && t.patenteCarro.toLowerCase().includes(q)) ||
+          (t.siglaCamion && t.siglaCamion.toLowerCase().includes(q)) ||
+          (t.transportista && t.transportista.toLowerCase().includes(q)) ||
+          (t.nombreConductor && t.nombreConductor.toLowerCase().includes(q)) ||
+          (t.codigoProducto && t.codigoProducto.toLowerCase().includes(q)) ||
+          (t.origen && t.origen.toLowerCase().includes(q)) ||
+          (t.destino && t.destino.toLowerCase().includes(q));
+        if (!matches) return false;
+      }
+
       return true;
     });
   }, [tickets, currentTab, filters]);
 
-  // Statistics
-  const receptionTickets = tickets.filter(t => t.tipo === 'recepcion');
-  const dispatchTickets = tickets.filter(t => t.tipo === 'despacho');
-
-  const totalVolumenMR = useMemo(() => {
-    return filteredTickets.reduce((acc, curr) => {
-      const v = parseFloat(curr.volumenMR) || 0;
-      return acc + v;
-    }, 0).toFixed(1);
-  }, [filteredTickets]);
+  // Reception vs Dispatch counts
+  const receptionTickets = useMemo(() => tickets.filter(t => t.tipo === 'recepcion'), [tickets]);
+  const dispatchTickets = useMemo(() => tickets.filter(t => t.tipo === 'despacho'), [tickets]);
 
   // Open modal to add new event
   const handleOpenAddEvent = (type: TicketType) => {
@@ -148,13 +223,13 @@ export default function App() {
   };
 
   // Open modal to edit existing ticket
-  const handleOpenEditEvent = (ticket: TicketItem) => {
+  const handleEditTicket = (ticket: TicketItem) => {
     setSelectedTicket(ticket);
     setModalDefaultType(ticket.tipo);
     setIsTicketModalOpen(true);
   };
 
-  // Print Thermal Ticket
+  // Open Citizen CT-S4000 Thermal Printer modal
   const handleTriggerThermalPrint = (ticket: TicketItem) => {
     setTicketToPrint(ticket);
     setIsPrintModalOpen(true);
@@ -164,7 +239,7 @@ export default function App() {
   const handleSaveTicket = (ticket: TicketItem) => {
     StorageService.saveTicket(ticket);
     refreshTickets();
-    showToast(`Evento de ${ticket.tipo === 'recepcion' ? 'Recepción' : 'Despacho'} (Guía Nº ${ticket.numeroGuia}) guardado con éxito.`);
+    showToast(selectedTicket ? 'Ticket actualizado y sincronizado en la nube.' : 'Nuevo Ticket emitido y guardado exitosamente.');
   };
 
   // Delete ticket handler
@@ -209,6 +284,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenLogin={() => setIsLoginOpen(true)}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
         receptionCount={receptionTickets.length}
         dispatchCount={dispatchTickets.length}
       />
@@ -251,6 +327,17 @@ export default function App() {
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2.5">
+            {/* Desktop Install Button */}
+            <button
+              id="btn-header-install-desktop"
+              onClick={() => setIsInstallModalOpen(true)}
+              className="px-3.5 py-2 bg-[#47433f] hover:bg-[#35322f] text-[#F2EDC9] text-xs font-bold uppercase tracking-wider rounded transition-all flex items-center gap-1.5 border border-[#676057] shadow-xs"
+              title="Descargar o instalar en el escritorio de Windows"
+            >
+              <MonitorDown className="w-4 h-4 text-[#BCB703]" />
+              <span className="hidden md:inline">Instalar en Windows</span>
+            </button>
+
             {(currentTab === 'recepcion' || currentTab === 'inicio') && (
               <button
                 id="btn-agregar-recepcion"
@@ -300,87 +387,43 @@ export default function App() {
         <div className="p-6 flex-1">
           {/* TAB: RECEPCION OR DESPACHO */}
           {(currentTab === 'recepcion' || currentTab === 'despacho') && (
-            <div className="space-y-4">
+            <div className="space-y-6">
               {/* Filter Bar */}
               <FilterBar
                 filters={filters}
                 setFilters={setFilters}
                 onReset={handleResetFilters}
-                onSearch={() => refreshTickets()}
+                totalCount={filteredTickets.length}
+                tipo={currentTab as TicketType}
               />
 
-              {/* Statistics & Overview Bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                <div className="bg-white p-3 rounded border border-stone-200 shadow-2xs">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
-                    {currentTab === 'recepcion' ? 'Total Recepciones' : 'Total Despachos'}
-                  </span>
-                  <span className="text-xl font-extrabold text-stone-900 font-mono">
-                    {filteredTickets.length}
-                  </span>
-                </div>
-
-                <div className="bg-white p-3 rounded border border-stone-200 shadow-2xs">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
-                    Volumen Total MR
-                  </span>
-                  <span className="text-xl font-extrabold text-[#D37608] font-mono">
-                    {totalVolumenMR} <span className="text-xs text-stone-500 font-normal">MR</span>
-                  </span>
-                </div>
-
-                <div className="bg-white p-3 rounded border border-stone-200 shadow-2xs">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
-                    Destino Principal
-                  </span>
-                  <span className="text-xs font-bold text-stone-800 truncate block mt-1">
-                    {currentTab === 'recepcion' ? 'CN RANQUIL' : (filters.destino || 'Todos')}
-                  </span>
-                </div>
-
-                <div className="bg-white p-3 rounded border border-stone-200 shadow-2xs">
-                  <span className="text-[10px] font-bold text-stone-500 uppercase tracking-wider block">
-                    Fecha Programa
-                  </span>
-                  <span className="text-xs font-bold text-stone-800 font-mono block mt-1">
-                    {filters.fechaPrograma || 'Todas'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Cards Grid Header */}
-              <div className="flex items-center justify-between pb-2 border-b border-stone-200">
-                <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-700">
-                  Eventos Registrados ({filteredTickets.length})
-                </h3>
-                <span className="text-[11px] text-stone-500">
-                  Haz clic en cualquier tarjeta para editar o presiona el icono <Printer className="w-3 h-3 inline text-stone-600" /> para imprimir en formato térmico (≤ 8cm)
-                </span>
-              </div>
-
+              {/* Tickets List / Empty State */}
               {filteredTickets.length === 0 ? (
-                <div className="bg-white border-2 border-dashed border-stone-300 rounded p-12 text-center my-6">
-                  <Truck className="w-12 h-12 text-stone-300 mx-auto mb-3" />
-                  <h4 className="text-sm font-bold text-stone-700 uppercase">No hay tickets registrados</h4>
-                  <p className="text-xs text-stone-500 max-w-md mx-auto mt-1 mb-4">
-                    No se encontraron eventos que coincidan con los filtros actuales.
+                <div className="bg-white border-2 border-dashed border-stone-300 rounded p-12 text-center">
+                  <Truck className="w-12 h-12 text-stone-400 mx-auto mb-3" />
+                  <h3 className="text-sm font-bold text-stone-700 uppercase tracking-wide">
+                    No se encontraron tickets con los filtros seleccionados
+                  </h3>
+                  <p className="text-xs text-stone-500 mt-1">
+                    Haga clic en "+ Agregar {currentTab === 'recepcion' ? 'Recepción' : 'Despacho'}" para registrar un nuevo ingreso.
                   </p>
                   <button
                     onClick={() => handleOpenAddEvent(currentTab as TicketType)}
-                    className="px-5 py-2 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase rounded shadow"
+                    className="mt-4 px-4 py-2 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase rounded inline-flex items-center gap-2"
                   >
-                    + Agregar Evento de {currentTab === 'recepcion' ? 'Recepción' : 'Despacho'}
+                    <Plus className="w-4 h-4" />
+                    <span>Crear Nuevo Ticket</span>
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {filteredTickets.map((ticket) => (
                     <TicketCard
                       key={ticket.id}
                       ticket={ticket}
-                      onOpenEdit={handleOpenEditEvent}
+                      onEdit={handleEditTicket}
                       onDelete={handleDeleteTicket}
-                      onPrintThermal={handleTriggerThermalPrint}
+                      onPrint={handleTriggerThermalPrint}
                     />
                   ))}
                 </div>
@@ -388,100 +431,85 @@ export default function App() {
             </div>
           )}
 
-          {/* TAB: INICIO DASHBOARD */}
+          {/* TAB: INICIO / DASHBOARD */}
           {currentTab === 'inicio' && (
             <div className="space-y-6">
-              {/* Quick Actions Hero */}
-              <div className="bg-gradient-to-r from-[#35322f] to-[#47433f] text-[#F2EDC9] p-6 rounded-sm shadow-md border-b-4 border-[#BCB703] flex flex-col md:flex-row md:items-center justify-between gap-6">
-                <div>
-                  <h2 className="text-lg font-bold uppercase tracking-wider text-white">
-                    Bienvenido al Portal de Recepción y Despacho Forestal
-                  </h2>
-                  <p className="text-xs text-neutral-300 mt-1 max-w-xl">
-                    Control de pesaje, recepción y despacho de camiones. Formatos adaptados para impresión en ticketera térmica CITIZEN CT-S4000 (≤ 8cm).
-                  </p>
+              {/* Stats Bar */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-white p-5 rounded border border-stone-200 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-stone-500">Total Eventos Hoy</span>
+                    <Layers className="w-4 h-4 text-stone-400" />
+                  </div>
+                  <p className="text-2xl font-extrabold text-stone-900 mt-2">{tickets.length}</p>
+                  <p className="text-[11px] text-stone-500 mt-1">Sincronizados en tiempo real</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={() => { setCurrentTab('recepcion'); handleOpenAddEvent('recepcion'); }}
-                    className="px-5 py-2.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-extrabold uppercase rounded shadow transition-all flex items-center gap-2"
-                  >
-                    <ArrowDownLeft className="w-4 h-4" />
-                    <span>Nueva Recepción</span>
-                  </button>
-                  <button
-                    onClick={() => { setCurrentTab('despacho'); handleOpenAddEvent('despacho'); }}
-                    className="px-5 py-2.5 bg-[#D37608] hover:bg-[#ba6502] text-white text-xs font-extrabold uppercase rounded shadow transition-all flex items-center gap-2"
-                  >
-                    <ArrowUpRight className="w-4 h-4" />
-                    <span>Nuevo Despacho</span>
-                  </button>
+                <div className="bg-white p-5 rounded border border-stone-200 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-[#1e3a8a]">Total Recepciones</span>
+                    <ArrowDownLeft className="w-4 h-4 text-[#1e3a8a]" />
+                  </div>
+                  <p className="text-2xl font-extrabold text-[#1e3a8a] mt-2">{receptionTickets.length}</p>
+                  <p className="text-[11px] text-stone-500 mt-1">Planta Ranquil / Descortezado</p>
+                </div>
+
+                <div className="bg-white p-5 rounded border border-stone-200 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase text-[#D37608]">Total Despachos</span>
+                    <ArrowUpRight className="w-4 h-4 text-[#D37608]" />
+                  </div>
+                  <p className="text-2xl font-extrabold text-[#D37608] mt-2">{dispatchTickets.length}</p>
+                  <p className="text-[11px] text-stone-500 mt-1">Hacia Nueva Aldea / Ranquil</p>
                 </div>
               </div>
 
-              {/* Summary Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div 
-                  onClick={() => setCurrentTab('recepcion')}
-                  className="bg-white p-5 rounded border border-stone-200 shadow-sm hover:border-[#1e3a8a] cursor-pointer transition-all border-l-4 border-l-[#1e3a8a]"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase text-stone-600">Recepción de Camiones</span>
-                    <ArrowDownLeft className="w-5 h-5 text-[#1e3a8a]" />
-                  </div>
-                  <div className="text-2xl font-black text-stone-900 font-mono">{receptionTickets.length}</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Destinos: CN Ranquil / Descortezado</p>
-                </div>
-
-                <div 
-                  onClick={() => setCurrentTab('despacho')}
-                  className="bg-white p-5 rounded border border-stone-200 shadow-sm hover:border-[#D37608] cursor-pointer transition-all border-l-4 border-l-[#D37608]"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase text-stone-600">Despacho de Camiones</span>
-                    <ArrowUpRight className="w-5 h-5 text-[#D37608]" />
-                  </div>
-                  <div className="text-2xl font-black text-stone-900 font-mono">{dispatchTickets.length}</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Salidas registradas</p>
-                </div>
-
-                <div 
-                  onClick={() => setCurrentTab('database')}
-                  className="bg-white p-5 rounded border border-stone-200 shadow-sm hover:border-[#BCB703] cursor-pointer transition-all border-l-4 border-l-[#BCB703]"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs font-bold uppercase text-stone-600">Base de Datos Excel</span>
-                    <FileSpreadsheet className="w-5 h-5 text-[#BCB703]" />
-                  </div>
-                  <div className="text-2xl font-black text-stone-900 font-mono">Activa</div>
-                  <p className="text-[11px] text-stone-500 mt-1">Patentes, Choferes y Especies sincronizadas</p>
-                </div>
-              </div>
-
-              {/* Recent Events List */}
-              <div className="bg-white rounded border border-stone-200 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4 pb-2 border-b border-stone-100">
+              {/* Recent Events Feed */}
+              <div className="bg-white rounded border border-stone-200 shadow-2xs overflow-hidden">
+                <div className="px-5 py-4 border-b border-stone-200 flex items-center justify-between">
                   <h3 className="text-xs font-extrabold uppercase tracking-wider text-stone-800">
-                    Últimos Eventos Registrados en el Sistema
+                    Últimos Registros del Sistema
                   </h3>
-                  <button 
-                    onClick={() => setCurrentTab('recepcion')}
-                    className="text-xs font-bold text-[#676057] hover:text-[#BCB703]"
-                  >
-                    Ver todos →
-                  </button>
+                  <span className="text-xs text-stone-500 font-mono">
+                    {tickets.length} registros en base de datos
+                  </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {tickets.slice(0, 6).map((ticket) => (
-                    <TicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      onOpenEdit={handleOpenEditEvent}
-                      onDelete={handleDeleteTicket}
-                      onPrintThermal={handleTriggerThermalPrint}
-                    />
+                <div className="divide-y divide-stone-100">
+                  {tickets.slice(0, 8).map((t) => (
+                    <div key={t.id} className="p-4 hover:bg-stone-50 transition-colors flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                          t.tipo === 'recepcion' ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-900'
+                        }`}>
+                          {t.tipo}
+                        </span>
+                        <div>
+                          <p className="text-xs font-bold text-stone-900">
+                            Guía #{t.numeroGuia || 'S/N'} • Ticket #{t.numeroTicket} • {t.patenteCamion}
+                          </p>
+                          <p className="text-[11px] text-stone-500">
+                            {t.transportista} | {t.nombreConductor || 'Conductor N/A'} | Vol: {t.volumenMR || '0.00'} MR
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleTriggerThermalPrint(t)}
+                          className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-200 rounded"
+                          title="Imprimir Ticket Térmico"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleEditTicket(t)}
+                          className="px-2.5 py-1 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-semibold rounded"
+                        >
+                          Ver Detalle
+                        </button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
@@ -516,6 +544,14 @@ export default function App() {
         isOpen={isPrintModalOpen}
         onClose={() => setIsPrintModalOpen(false)}
         ticket={ticketToPrint}
+      />
+
+      {/* Desktop Windows Install Modal */}
+      <DesktopInstallModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        onNativeInstall={handleNativeInstall}
+        canInstallNative={!!deferredInstallPrompt}
       />
 
       {/* Login / User Switch Modal */}

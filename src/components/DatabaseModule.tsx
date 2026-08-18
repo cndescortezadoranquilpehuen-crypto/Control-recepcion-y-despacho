@@ -36,6 +36,8 @@ export const DatabaseModule: React.FC = () => {
   const [newConductor, setNewConductor] = useState<ConductorItem>({ rutConductor: '', nombreConductor: '', transportista: '' });
   const [newProducto, setNewProducto] = useState<ProductoItem>({ especie: 'PINO RADIATA', codigoProducto: '', largo: '2.65' });
 
+  const [isSyncing, setIsSyncing] = useState(false);
+
   const loadData = () => {
     setPatentes(StorageService.getPatentes());
     setConductores(StorageService.getConductores());
@@ -44,7 +46,25 @@ export const DatabaseModule: React.FC = () => {
 
   useEffect(() => {
     loadData();
+    const unsubscribe = StorageService.subscribe(loadData);
+    return () => {
+      unsubscribe();
+    };
   }, []);
+
+  const handleCloudSync = async () => {
+    setIsSyncing(true);
+    setUploadStatus('Sincronizando datos con Firebase Firestore...');
+    try {
+      await StorageService.syncWithFirestore();
+      loadData();
+      setUploadStatus('¡Sincronización con la nube completada con éxito!');
+    } catch (err: any) {
+      setUploadStatus(`Error de sincronización: ${err.message || 'Error desconocido'}`);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -191,6 +211,17 @@ export const DatabaseModule: React.FC = () => {
             <Upload className="w-4 h-4" />
             <span>Subir Excel "Base datos"</span>
           </label>
+
+          <button
+            id="btn-sync-cloud-db"
+            onClick={handleCloudSync}
+            disabled={isSyncing}
+            className="px-3.5 py-2 bg-[#0284c7] hover:bg-[#0369a1] text-white text-xs font-bold uppercase tracking-wider rounded transition-colors flex items-center gap-1.5 shadow-sm disabled:opacity-50"
+            title="Sincronizar base de datos con Firebase Firestore"
+          >
+            <RefreshCw className={`w-4 h-4 ${isSyncing ? 'animate-spin' : ''}`} />
+            <span>{isSyncing ? 'Sincronizando...' : 'Sincronizar Nube'}</span>
+          </button>
 
           <button
             id="btn-export-excel-db"

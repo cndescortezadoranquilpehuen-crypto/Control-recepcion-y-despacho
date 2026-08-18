@@ -78,6 +78,15 @@ export async function testFirestoreConnection() {
   }
 }
 
+// Helper to chunk arrays for Firestore batch writes (max 400 per batch)
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
 // Firestore Realtime listeners and helpers
 export const FirestoreService = {
   // Listen to Tickets collection
@@ -102,6 +111,20 @@ export const FirestoreService = {
     } catch (err) {
       handleFirestoreError(err, OperationType.GET, path);
       return () => {};
+    }
+  },
+
+  // Fetch Tickets Once
+  fetchTicketsOnce: async (): Promise<TicketItem[]> => {
+    try {
+      const snap = await getDocs(collection(db, 'tickets'));
+      const items: TicketItem[] = [];
+      snap.forEach((d) => items.push(d.data() as TicketItem));
+      items.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+      return items;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'tickets');
+      return [];
     }
   },
 
@@ -150,18 +173,39 @@ export const FirestoreService = {
     }
   },
 
-  // Bulk save patentes
-  savePatentesBatch: async (patentes: PatenteItem[]): Promise<void> => {
-    const batch = writeBatch(db);
-    patentes.forEach((p, idx) => {
-      const docId = p.patenteCamion.replace(/[^a-zA-Z0-9_-]/g, '') || `pat-${idx}`;
-      batch.set(doc(db, 'patentes', docId), p);
-    });
+  // Fetch Patentes Once
+  fetchPatentesOnce: async (): Promise<PatenteItem[]> => {
     try {
-      await batch.commit();
+      const snap = await getDocs(collection(db, 'patentes'));
+      const items: PatenteItem[] = [];
+      snap.forEach((d) => items.push(d.data() as PatenteItem));
+      return items;
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'patentes');
-      throw err;
+      handleFirestoreError(err, OperationType.GET, 'patentes');
+      return [];
+    }
+  },
+
+  // Bulk save patentes with chunking (up to 400 per batch)
+  savePatentesBatch: async (patentes: PatenteItem[]): Promise<void> => {
+    const chunks = chunkArray(patentes, 400);
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach((p, idx) => {
+        const cleanDocId = p.patenteCamion.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `pat_${Date.now()}_${idx}`;
+        batch.set(doc(db, 'patentes', cleanDocId), {
+          patenteCamion: p.patenteCamion.trim().toUpperCase(),
+          patenteCarro: (p.patenteCarro || '').trim().toUpperCase(),
+          siglaCamion: (p.siglaCamion || p.patenteCamion).trim().toUpperCase(),
+          transportista: (p.transportista || 'GENERAL').trim().toUpperCase()
+        });
+      });
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'patentes');
+        throw err;
+      }
     }
   },
 
@@ -188,18 +232,38 @@ export const FirestoreService = {
     }
   },
 
-  // Bulk save conductores
-  saveConductoresBatch: async (conductores: ConductorItem[]): Promise<void> => {
-    const batch = writeBatch(db);
-    conductores.forEach((c, idx) => {
-      const docId = c.rutConductor.replace(/[^a-zA-Z0-9_-]/g, '') || `cond-${idx}`;
-      batch.set(doc(db, 'conductores', docId), c);
-    });
+  // Fetch Conductores Once
+  fetchConductoresOnce: async (): Promise<ConductorItem[]> => {
     try {
-      await batch.commit();
+      const snap = await getDocs(collection(db, 'conductores'));
+      const items: ConductorItem[] = [];
+      snap.forEach((d) => items.push(d.data() as ConductorItem));
+      return items;
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'conductores');
-      throw err;
+      handleFirestoreError(err, OperationType.GET, 'conductores');
+      return [];
+    }
+  },
+
+  // Bulk save conductores with chunking
+  saveConductoresBatch: async (conductores: ConductorItem[]): Promise<void> => {
+    const chunks = chunkArray(conductores, 400);
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach((c, idx) => {
+        const cleanDocId = c.rutConductor.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `cond_${Date.now()}_${idx}`;
+        batch.set(doc(db, 'conductores', cleanDocId), {
+          rutConductor: c.rutConductor.trim().toUpperCase(),
+          nombreConductor: (c.nombreConductor || '').trim().toUpperCase(),
+          transportista: (c.transportista || 'GENERAL').trim().toUpperCase()
+        });
+      });
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'conductores');
+        throw err;
+      }
     }
   },
 
@@ -226,18 +290,38 @@ export const FirestoreService = {
     }
   },
 
-  // Bulk save productos
-  saveProductosBatch: async (productos: ProductoItem[]): Promise<void> => {
-    const batch = writeBatch(db);
-    productos.forEach((p, idx) => {
-      const docId = p.codigoProducto.replace(/[^a-zA-Z0-9_-]/g, '') || `prod-${idx}`;
-      batch.set(doc(db, 'productos', docId), p);
-    });
+  // Fetch Productos Once
+  fetchProductosOnce: async (): Promise<ProductoItem[]> => {
     try {
-      await batch.commit();
+      const snap = await getDocs(collection(db, 'productos'));
+      const items: ProductoItem[] = [];
+      snap.forEach((d) => items.push(d.data() as ProductoItem));
+      return items;
     } catch (err) {
-      handleFirestoreError(err, OperationType.WRITE, 'productos');
-      throw err;
+      handleFirestoreError(err, OperationType.GET, 'productos');
+      return [];
+    }
+  },
+
+  // Bulk save productos with chunking
+  saveProductosBatch: async (productos: ProductoItem[]): Promise<void> => {
+    const chunks = chunkArray(productos, 400);
+    for (const chunk of chunks) {
+      const batch = writeBatch(db);
+      chunk.forEach((p, idx) => {
+        const cleanDocId = p.codigoProducto.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `prod_${Date.now()}_${idx}`;
+        batch.set(doc(db, 'productos', cleanDocId), {
+          especie: (p.especie || 'PINO RADIATA').trim().toUpperCase(),
+          codigoProducto: p.codigoProducto.trim().toUpperCase(),
+          largo: String(p.largo || '0').trim()
+        });
+      });
+      try {
+        await batch.commit();
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, 'productos');
+        throw err;
+      }
     }
   },
 

@@ -11,7 +11,8 @@ import {
   ChevronRight, 
   ShieldCheck,
   UserCheck,
-  Lock
+  Lock,
+  MonitorDown
 } from 'lucide-react';
 import { UserAccount } from '../types';
 
@@ -21,6 +22,7 @@ interface SidebarProps {
   currentUser: UserAccount | null;
   onLogout: () => void;
   onOpenLogin: () => void;
+  onOpenInstallModal?: () => void;
   receptionCount: number;
   dispatchCount: number;
 }
@@ -31,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentUser,
   onLogout,
   onOpenLogin,
+  onOpenInstallModal,
   receptionCount,
   dispatchCount
 }) => {
@@ -186,7 +189,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </nav>
 
       {/* User Info & Footer */}
-      <div id="sidebar-footer" className="p-3 border-t border-[#47433f] bg-[#2d2a27]">
+      <div id="sidebar-footer" className="p-3 border-t border-[#47433f] bg-[#2d2a27] space-y-2">
+        {onOpenInstallModal && (
+          <button
+            id="btn-sidebar-install"
+            onClick={onOpenInstallModal}
+            className="w-full py-1.5 px-2.5 bg-[#47433f] hover:bg-[#58534e] text-[#F2EDC9] rounded text-[11px] font-bold uppercase tracking-wider transition-colors flex items-center justify-center gap-1.5 border border-[#676057]"
+            title="Descargar aplicación en el escritorio de Windows"
+          >
+            <MonitorDown className="w-3.5 h-3.5 text-[#BCB703]" />
+            <span>Instalar en Windows</span>
+          </button>
+        )}
+
         {currentUser ? (
           <div className="space-y-2">
             <div className="flex items-center justify-between">
