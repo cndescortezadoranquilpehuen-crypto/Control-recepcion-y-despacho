@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "Ticket": {
+      "title": "Ticket",
+      "description": "Evento de guía para recepción o despacho de camiones forestales",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "tipo": { "type": "string", "enum": ["recepcion", "despacho"] },
+        "numeroGuia": { "type": "string", "maxLength": 64 },
+        "fechaPrograma": { "type": "string", "maxLength": 32 },
+        "hora": { "type": "string", "maxLength": 16 },
+        "patenteCamion": { "type": "string", "maxLength": 32 },
+        "siglaCamion": { "type": "string", "maxLength": 32 },
+        "patenteCarro": { "type": "string", "maxLength": 32 },
+        "transportista": { "type": "string", "maxLength": 128 },
+        "rutConductor": { "type": "string", "maxLength": 32 },
+        "nombreConductor": { "type": "string", "maxLength": 128 },
+        "especie": { "type": "string", "maxLength": 64 },
+        "codigoProducto": { "type": "string", "maxLength": 64 },
+        "largo": { "type": "string", "maxLength": 32 },
+        "fechaCorta": { "type": "string", "maxLength": 32 },
+        "anoPlantacion": { "type": "string", "maxLength": 16 },
+        "volumenMR": { "type": "string", "maxLength": 32 },
+        "origen": { "type": "string", "maxLength": 128 },
+        "destino": { "type": "string", "maxLength": 128 },
+        "zonaForestal": { "type": "string", "maxLength": 64 },
+        "emseforDespacho": { "type": "string", "maxLength": 128 },
+        "numeroGiro": { "type": "string", "maxLength": 64 },
+        "grua": { "type": "string", "maxLength": 64 },
+        "observaciones": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["tipo", "numeroGuia", "patenteCamion"]
+    },
+    "Patente": {
+      "title": "Patente",
+      "description": "Registro de camión, sigla y empresa transportista",
+      "type": "object",
+      "properties": {
+        "patenteCamion": { "type": "string", "maxLength": 32 },
+        "siglaCamion": { "type": "string", "maxLength": 32 },
+        "patenteCarro": { "type": "string", "maxLength": 32 },
+        "transportista": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["patenteCamion", "siglaCamion", "transportista"]
+    },
+    "Conductor": {
+      "title": "Conductor",
+      "description": "Registro de chofer asociado a transportista",
+      "type": "object",
+      "properties": {
+        "rutConductor": { "type": "string", "maxLength": 32 },
+        "nombreConductor": { "type": "string", "maxLength": 128 },
+        "transportista": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["rutConductor", "nombreConductor", "transportista"]
+    },
+    "Producto": {
+      "title": "Producto",
+      "description": "Registro maestro de productos, especies y largos",
+      "type": "object",
+      "properties": {
+        "codigoProducto": { "type": "string", "maxLength": 64 },
+        "especie": { "type": "string", "maxLength": 64 },
+        "largo": { "type": "string", "maxLength": 32 }
+      },
+      "required": ["codigoProducto", "especie", "largo"]
+    },
+    "User": {
+      "title": "User",
+      "description": "Cuenta de usuario y rol de acceso",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nombre": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 128 },
+        "rol": { "type": "string", "enum": ["admin", "usuario"] },
+        "cargo": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "nombre", "rol"]
+    }
+  },
+  "firestore": {
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Colección de tickets de recepción y despacho de camiones"
+    },
+    "/patentes/{patenteId}": {
+      "schema": "Patente",
+      "description": "Catálogo de patentes de camiones y transportistas"
+    },
+    "/conductores/{conductorId}": {
+      "schema": "Conductor",
+      "description": "Catálogo de conductores registrados"
+    },
+    "/productos/{productoId}": {
+      "schema": "Producto",
+      "description": "Catálogo de productos forestales y códigos"
+    },
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Usuarios y perfiles de acceso"
+    }
+  }
+}

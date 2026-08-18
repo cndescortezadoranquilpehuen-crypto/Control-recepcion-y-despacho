@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #thermal-printable-ticket,
+  #thermal-printable-ticket * {
+    visibility: visible;
+  }
+  #thermal-printable-ticket {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 76mm !important;
+    max-height: 80mm !important;
+    margin: 0 !important;
+    padding: 2mm !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+  @page {
+    size: 80mm 80mm;
+    margin: 0;
+  }
+}

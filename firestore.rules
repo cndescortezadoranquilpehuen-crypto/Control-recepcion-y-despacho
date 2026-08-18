@@ -1,0 +1,94 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Ticket Validation Helper
+    function isValidTicket(data) {
+      return data.tipo in ['recepcion', 'despacho'] &&
+             data.numeroGuia is string && data.numeroGuia.size() > 0 && data.numeroGuia.size() <= 64 &&
+             data.patenteCamion is string && data.patenteCamion.size() > 0 && data.patenteCamion.size() <= 32;
+    }
+
+    // Patente Validation Helper
+    function isValidPatente(data) {
+      return data.patenteCamion is string && data.patenteCamion.size() > 0 && data.patenteCamion.size() <= 32 &&
+             data.siglaCamion is string && data.siglaCamion.size() > 0 && data.siglaCamion.size() <= 32 &&
+             data.transportista is string && data.transportista.size() > 0 && data.transportista.size() <= 128;
+    }
+
+    // Conductor Validation Helper
+    function isValidConductor(data) {
+      return data.rutConductor is string && data.rutConductor.size() > 0 && data.rutConductor.size() <= 32 &&
+             data.nombreConductor is string && data.nombreConductor.size() > 0 && data.nombreConductor.size() <= 128 &&
+             data.transportista is string && data.transportista.size() > 0 && data.transportista.size() <= 128;
+    }
+
+    // Producto Validation Helper
+    function isValidProducto(data) {
+      return data.codigoProducto is string && data.codigoProducto.size() > 0 && data.codigoProducto.size() <= 64 &&
+             data.especie is string && data.especie.size() > 0 && data.especie.size() <= 64 &&
+             data.largo is string && data.largo.size() > 0 && data.largo.size() <= 32;
+    }
+
+    // User Validation Helper
+    function isValidUser(data) {
+      return data.id is string && data.id.size() > 0 && data.id.size() <= 128 &&
+             data.nombre is string && data.nombre.size() > 0 && data.nombre.size() <= 128 &&
+             data.rol in ['admin', 'usuario'];
+    }
+
+    // Tickets collection rules
+    match /tickets/{ticketId} {
+      allow read: if true;
+      allow create, update: if isValidId(ticketId) && isValidTicket(incoming());
+      allow delete: if isValidId(ticketId);
+    }
+
+    // Patentes master database rules
+    match /patentes/{patenteId} {
+      allow read: if true;
+      allow create, update: if isValidId(patenteId) && isValidPatente(incoming());
+      allow delete: if isValidId(patenteId);
+    }
+
+    // Conductores master database rules
+    match /conductores/{conductorId} {
+      allow read: if true;
+      allow create, update: if isValidId(conductorId) && isValidConductor(incoming());
+      allow delete: if isValidId(conductorId);
+    }
+
+    // Productos master database rules
+    match /productos/{productoId} {
+      allow read: if true;
+      allow create, update: if isValidId(productoId) && isValidProducto(incoming());
+      allow delete: if isValidId(productoId);
+    }
+
+    // Users & Roles rules
+    match /users/{userId} {
+      allow read: if true;
+      allow create, update: if isValidId(userId) && isValidUser(incoming());
+      allow delete: if isValidId(userId);
+    }
+  }
+}
