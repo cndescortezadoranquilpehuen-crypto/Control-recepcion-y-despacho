@@ -1,5 +1,5 @@
 {
-  "name": "Portal Forestal - Recepción y Despacho",
+  "name": "Control Recepcion y Despacho",
   "description": "Sistema de gestión para recepción y despacho de camiones forestales con base de datos de patentes, conductores y productos.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]

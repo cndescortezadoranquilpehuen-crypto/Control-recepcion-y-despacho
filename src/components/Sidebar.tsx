@@ -53,10 +53,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         <div className="text-center">
           <h1 className="text-xs font-bold uppercase tracking-widest text-[#F2EDC9]">
-            Portal Administración
+            Control Recepción
           </h1>
-          <span className="text-[10px] text-neutral-400 font-mono">
-            RECEPCIÓN &amp; DESPACHO
+          <span className="text-[10px] text-[#BCB703] font-bold font-mono tracking-wider">
+            &amp; DESPACHO
           </span>
         </div>
       </div>
