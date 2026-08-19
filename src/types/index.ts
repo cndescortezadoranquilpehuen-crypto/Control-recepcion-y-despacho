@@ -52,7 +52,11 @@ export interface TicketItem {
   numeroGiro: string;
   grua: string;
   observaciones: string;
+  // Auditoría y Trazabilidad (Solo visible para Administrador)
   creadoPor?: string;
+  creadoPorId?: string;
+  creadoPorNombre?: string;
+  modificadoPor?: string;
   createdAt: string;
   updatedAt: string;
 }

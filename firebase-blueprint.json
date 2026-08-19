@@ -22,6 +22,10 @@
         "fechaCorta": { "type": "string", "maxLength": 32 },
         "anoPlantacion": { "type": "string", "maxLength": 16 },
         "volumenMR": { "type": "string", "maxLength": 32 },
+        "numeroRuma": { "type": "string", "maxLength": 64 },
+        "pesoBruto": { "type": "string", "maxLength": 32 },
+        "pesoTara": { "type": "string", "maxLength": 32 },
+        "pesoNeto": { "type": "string", "maxLength": 32 },
         "origen": { "type": "string", "maxLength": 128 },
         "destino": { "type": "string", "maxLength": 128 },
         "zonaForestal": { "type": "string", "maxLength": 64 },
@@ -29,10 +33,13 @@
         "numeroGiro": { "type": "string", "maxLength": 64 },
         "grua": { "type": "string", "maxLength": 64 },
         "observaciones": { "type": "string", "maxLength": 500 },
+        "creadoPor": { "type": "string", "maxLength": 128 },
+        "creadoPorNombre": { "type": "string", "maxLength": 128 },
+        "modificadoPor": { "type": "string", "maxLength": 128 },
         "createdAt": { "type": "string", "maxLength": 64 },
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["tipo", "numeroGuia", "patenteCamion"]
+      "required": ["tipo", "patenteCamion"]
     },
     "Patente": {
       "title": "Patente",

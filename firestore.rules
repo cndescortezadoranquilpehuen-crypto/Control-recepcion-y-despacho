@@ -24,7 +24,7 @@ service cloud.firestore {
     // Ticket Validation Helper
     function isValidTicket(data) {
       return data.tipo in ['recepcion', 'despacho'] &&
-             data.numeroGuia is string && data.numeroGuia.size() > 0 && data.numeroGuia.size() <= 64 &&
+             data.numeroGuia is string && data.numeroGuia.size() >= 0 && data.numeroGuia.size() <= 64 &&
              data.patenteCamion is string && data.patenteCamion.size() > 0 && data.patenteCamion.size() <= 32;
     }
 

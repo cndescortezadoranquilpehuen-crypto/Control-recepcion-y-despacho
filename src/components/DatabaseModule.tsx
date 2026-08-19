@@ -13,11 +13,14 @@ import {
   User, 
   TreePine,
   FileSpreadsheet,
-  Save
+  Save,
+  UserCheck,
+  Trees
 } from 'lucide-react';
 import { ConductorItem, PatenteItem, ProductoItem } from '../types';
 import { StorageService } from '../services/storageService';
 import { INITIAL_CONDUCTORES, INITIAL_PATENTES, INITIAL_PRODUCTOS } from '../data/mockSeed';
+import { QuickAddMasterModal, MasterType } from './QuickAddMasterModal';
 
 export const DatabaseModule: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'patentes' | 'conductores' | 'productos'>('patentes');
@@ -30,11 +33,8 @@ export const DatabaseModule: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Manual Add Form Modal
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newPatente, setNewPatente] = useState<PatenteItem>({ patenteCamion: '', patenteCarro: '', siglaCamion: '', transportista: '' });
-  const [newConductor, setNewConductor] = useState<ConductorItem>({ rutConductor: '', nombreConductor: '', transportista: '' });
-  const [newProducto, setNewProducto] = useState<ProductoItem>({ especie: 'PINO RADIATA', codigoProducto: '', largo: '2.65' });
+  // Quick Add Master Modal
+  const [quickAddType, setQuickAddType] = useState<MasterType | null>(null);
 
   const [isSyncing, setIsSyncing] = useState(false);
 
@@ -119,28 +119,14 @@ export const DatabaseModule: React.FC = () => {
   };
 
   // Add Item Submit
-  const handleAddItem = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (activeTab === 'patentes') {
-      if (!newPatente.patenteCamion) return;
-      const updated = [newPatente, ...patentes];
-      StorageService.savePatentes(updated);
-      setPatentes(updated);
-      setNewPatente({ patenteCamion: '', patenteCarro: '', siglaCamion: '', transportista: '' });
-    } else if (activeTab === 'conductores') {
-      if (!newConductor.rutConductor) return;
-      const updated = [newConductor, ...conductores];
-      StorageService.saveConductores(updated);
-      setConductores(updated);
-      setNewConductor({ rutConductor: '', nombreConductor: '', transportista: '' });
-    } else if (activeTab === 'productos') {
-      if (!newProducto.codigoProducto) return;
-      const updated = [newProducto, ...productos];
-      StorageService.saveProductos(updated);
-      setProductosDb(updated);
-      setNewProducto({ especie: 'PINO RADIATA', codigoProducto: '', largo: '2.65' });
+  const handleOpenAddModal = (type?: MasterType) => {
+    if (type) {
+      setQuickAddType(type);
+    } else {
+      if (activeTab === 'patentes') setQuickAddType('patente');
+      else if (activeTab === 'conductores') setQuickAddType('conductor');
+      else if (activeTab === 'productos') setQuickAddType('producto');
     }
-    setShowAddModal(false);
   };
 
   const handleDeleteItem = (index: number) => {
@@ -315,11 +301,13 @@ export const DatabaseModule: React.FC = () => {
 
             <button
               id="btn-add-record"
-              onClick={() => setShowAddModal(true)}
-              className="px-3 py-1.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase rounded flex items-center gap-1 shadow-sm"
+              onClick={() => handleOpenAddModal()}
+              className="px-3.5 py-1.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase rounded flex items-center gap-1.5 shadow-sm transition-colors"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Agregar</span>
+              <Plus className="w-4 h-4" />
+              <span>
+                {activeTab === 'patentes' ? '+ Nueva Patente' : activeTab === 'conductores' ? '+ Nuevo Conductor' : '+ Nuevo Producto'}
+              </span>
             </button>
           </div>
         </div>
@@ -441,157 +429,13 @@ export const DatabaseModule: React.FC = () => {
         </div>
       </div>
 
-      {/* Manual Add Record Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 z-50 bg-stone-900/60 flex items-center justify-center p-4">
-          <div className="bg-white w-full max-w-md rounded shadow-xl border border-stone-300 p-5">
-            <h3 className="text-sm font-bold uppercase text-stone-900 mb-4 pb-2 border-b border-stone-200">
-              Agregar Nuevo Registro ({activeTab.toUpperCase()})
-            </h3>
-            
-            <form onSubmit={handleAddItem} className="space-y-3">
-              {activeTab === 'patentes' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Patente Camión</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: RRFG94"
-                      value={newPatente.patenteCamion}
-                      onChange={(e) => setNewPatente({ ...newPatente, patenteCamion: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Sigla Camión</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: LL115"
-                      value={newPatente.siglaCamion}
-                      onChange={(e) => setNewPatente({ ...newPatente, siglaCamion: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Patente Carro</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: PWWX23"
-                      value={newPatente.patenteCarro}
-                      onChange={(e) => setNewPatente({ ...newPatente, patenteCarro: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Transportista</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: SOC.TRANSPORTES LLICO LTDA."
-                      value={newPatente.transportista}
-                      onChange={(e) => setNewPatente({ ...newPatente, transportista: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                </>
-              )}
-
-              {activeTab === 'conductores' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">RUT Conductor</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: 16013391-0"
-                      value={newConductor.rutConductor}
-                      onChange={(e) => setNewConductor({ ...newConductor, rutConductor: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs font-mono uppercase border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Nombre Conductor</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Nombre completo..."
-                      value={newConductor.nombreConductor}
-                      onChange={(e) => setNewConductor({ ...newConductor, nombreConductor: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Transportista Asignado</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Empresa de transporte..."
-                      value={newConductor.transportista}
-                      onChange={(e) => setNewConductor({ ...newConductor, transportista: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded"
-                    />
-                  </div>
-                </>
-              )}
-
-              {activeTab === 'productos' && (
-                <>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Especie Forestal</label>
-                    <select
-                      value={newProducto.especie}
-                      onChange={(e) => setNewProducto({ ...newProducto, especie: e.target.value })}
-                      className="w-full h-8 px-2 text-xs border rounded"
-                    >
-                      <option value="PINO RADIATA">PINO RADIATA</option>
-                      <option value="EUCALIPTUS GLOBULUS">EUCALIPTUS GLOBULUS</option>
-                      <option value="EUCALIPTUS NITENS">EUCALIPTUS NITENS</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Código Producto</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="Ej: P0500RRCCAL1"
-                      value={newProducto.codigoProducto}
-                      onChange={(e) => setNewProducto({ ...newProducto, codigoProducto: e.target.value.toUpperCase() })}
-                      className="w-full h-8 px-2 text-xs uppercase border rounded font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-stone-700 mb-1">Largo (m)</label>
-                    <input
-                      type="text"
-                      placeholder="Ej: 5.0"
-                      value={newProducto.largo}
-                      onChange={(e) => setNewProducto({ ...newProducto, largo: e.target.value })}
-                      className="w-full h-8 px-2 text-xs border rounded"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex justify-end gap-2 pt-3 border-t">
-                <button
-                  type="button"
-                  onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 text-xs text-stone-600 hover:bg-stone-100 rounded"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-1.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold rounded shadow-sm"
-                >
-                  Guardar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Quick Add Master Modal */}
+      <QuickAddMasterModal
+        isOpen={!!quickAddType}
+        onClose={() => setQuickAddType(null)}
+        initialType={quickAddType || 'patente'}
+        onItemAdded={() => loadData()}
+      />
     </div>
   );
 };

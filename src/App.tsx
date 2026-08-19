@@ -162,7 +162,7 @@ export default function App() {
 
   // Filter tickets logic
   const filteredTickets = useMemo(() => {
-    return tickets.filter((t) => {
+    const matched = tickets.filter((t) => {
       // Tab filter
       if (currentTab === 'recepcion' && t.tipo !== 'recepcion') return false;
       if (currentTab === 'despacho' && t.tipo !== 'despacho') return false;
@@ -209,11 +209,12 @@ export default function App() {
 
       return true;
     });
+    return StorageService.sortTicketsDesc(matched);
   }, [tickets, currentTab, filters]);
 
-  // Reception vs Dispatch counts
-  const receptionTickets = useMemo(() => tickets.filter(t => t.tipo === 'recepcion'), [tickets]);
-  const dispatchTickets = useMemo(() => tickets.filter(t => t.tipo === 'despacho'), [tickets]);
+  // Reception vs Dispatch counts (sorted descending)
+  const receptionTickets = useMemo(() => StorageService.sortTicketsDesc(tickets.filter(t => t.tipo === 'recepcion')), [tickets]);
+  const dispatchTickets = useMemo(() => StorageService.sortTicketsDesc(tickets.filter(t => t.tipo === 'despacho')), [tickets]);
 
   // Open modal to add new event
   const handleOpenAddEvent = (type: TicketType) => {
@@ -534,6 +535,7 @@ export default function App() {
         onClose={() => setIsTicketModalOpen(false)}
         ticketToEdit={selectedTicket}
         defaultType={modalDefaultType}
+        currentUser={currentUser}
         onSave={handleSaveTicket}
         onDelete={handleDeleteTicket}
         onPrintThermal={handleTriggerThermalPrint}

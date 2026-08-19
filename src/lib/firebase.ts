@@ -325,6 +325,84 @@ export const FirestoreService = {
     }
   },
 
+  // Save single patente
+  savePatenteSingle: async (p: PatenteItem): Promise<void> => {
+    const cleanDocId = p.patenteCamion.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `pat_${Date.now()}`;
+    const path = `patentes/${cleanDocId}`;
+    try {
+      await setDoc(doc(db, 'patentes', cleanDocId), {
+        patenteCamion: p.patenteCamion.trim().toUpperCase(),
+        patenteCarro: (p.patenteCarro || '').trim().toUpperCase(),
+        siglaCamion: (p.siglaCamion || p.patenteCamion).trim().toUpperCase(),
+        transportista: (p.transportista || 'GENERAL').trim().toUpperCase()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+      throw err;
+    }
+  },
+
+  // Save single conductor
+  saveConductorSingle: async (c: ConductorItem): Promise<void> => {
+    const cleanDocId = c.rutConductor.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `cond_${Date.now()}`;
+    const path = `conductores/${cleanDocId}`;
+    try {
+      await setDoc(doc(db, 'conductores', cleanDocId), {
+        rutConductor: c.rutConductor.trim().toUpperCase(),
+        nombreConductor: (c.nombreConductor || '').trim().toUpperCase(),
+        transportista: (c.transportista || 'GENERAL').trim().toUpperCase()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+      throw err;
+    }
+  },
+
+  // Save single producto
+  saveProductoSingle: async (p: ProductoItem): Promise<void> => {
+    const cleanDocId = p.codigoProducto.trim().toUpperCase().replace(/[^a-zA-Z0-9_-]/g, '_') || `prod_${Date.now()}`;
+    const path = `productos/${cleanDocId}`;
+    try {
+      await setDoc(doc(db, 'productos', cleanDocId), {
+        especie: (p.especie || 'PINO RADIATA').trim().toUpperCase(),
+        codigoProducto: p.codigoProducto.trim().toUpperCase(),
+        largo: String(p.largo || '0').trim()
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, path);
+      throw err;
+    }
+  },
+
+  // Purge tickets older than 48 hours from Firestore temporal database
+  purgeExpiredTickets: async (maxAgeHours: number = 48): Promise<number> => {
+    try {
+      const snap = await getDocs(collection(db, 'tickets'));
+      const now = Date.now();
+      const cutoffTime = now - (maxAgeHours * 60 * 60 * 1000);
+      let purgedCount = 0;
+      const batch = writeBatch(db);
+
+      snap.forEach((d) => {
+        const data = d.data() as TicketItem;
+        const createdAtTime = new Date(data.createdAt || data.fechaPrograma).getTime();
+        // If older than 48 hours AND not pending (or unconditionally older than 48 hours)
+        if (!isNaN(createdAtTime) && createdAtTime < cutoffTime) {
+          batch.delete(d.ref);
+          purgedCount++;
+        }
+      });
+
+      if (purgedCount > 0) {
+        await batch.commit();
+      }
+      return purgedCount;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, 'tickets');
+      return 0;
+    }
+  },
+
   // Listen to Users
   subscribeUsers: (onUpdate: (users: UserAccount[]) => void) => {
     const path = 'users';

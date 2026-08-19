@@ -82,6 +82,47 @@ export class StorageService {
     });
   }
 
+  // Add single Patente with duplicate checking and uppercase enforcement
+  static addPatente(item: PatenteItem): { success: boolean; isDuplicate?: boolean; message: string } {
+    const patentes = this.getPatentes();
+    const cleanPatente = item.patenteCamion.trim().toUpperCase();
+    
+    if (!cleanPatente) {
+      return { success: false, message: 'La patente de camión es obligatoria.' };
+    }
+
+    const existing = patentes.find(
+      p => p.patenteCamion.trim().toUpperCase() === cleanPatente
+    );
+
+    if (existing) {
+      return {
+        success: false,
+        isDuplicate: true,
+        message: `⚠️ La patente "${cleanPatente}" ya se encuentra registrada en la base de datos con el transportista "${existing.transportista}".`
+      };
+    }
+
+    const formattedItem: PatenteItem = {
+      patenteCamion: cleanPatente,
+      siglaCamion: (item.siglaCamion || cleanPatente).trim().toUpperCase(),
+      patenteCarro: (item.patenteCarro || '').trim().toUpperCase(),
+      transportista: (item.transportista || 'GENERAL').trim().toUpperCase()
+    };
+
+    const updatedList = [formattedItem, ...patentes];
+    localStorage.setItem(STORAGE_KEYS.PATENTES, JSON.stringify(updatedList));
+    this.notifyListeners();
+    FirestoreService.savePatenteSingle(formattedItem).catch(err => {
+      console.warn('Error syncing single patente to Firestore:', err);
+    });
+
+    return {
+      success: true,
+      message: `✅ Patente "${cleanPatente}" agregada exitosamente a la base de datos.`
+    };
+  }
+
   // --- CONDUCTORES ---
   static getConductores(): ConductorItem[] {
     try {
@@ -104,6 +145,47 @@ export class StorageService {
     FirestoreService.saveConductoresBatch(items).catch(err => {
       console.warn('Could not sync conductores to Firestore:', err);
     });
+  }
+
+  // Add single Conductor with duplicate checking and uppercase enforcement
+  static addConductor(item: ConductorItem): { success: boolean; isDuplicate?: boolean; message: string } {
+    const conductores = this.getConductores();
+    const cleanRut = item.rutConductor.trim().toUpperCase().replace(/[\.\-\s]/g, '');
+    const displayRut = item.rutConductor.trim().toUpperCase();
+
+    if (!displayRut || !item.nombreConductor.trim()) {
+      return { success: false, message: 'El RUT y Nombre del conductor son obligatorios.' };
+    }
+
+    const existing = conductores.find(
+      c => c.rutConductor.trim().toUpperCase().replace(/[\.\-\s]/g, '') === cleanRut
+    );
+
+    if (existing) {
+      return {
+        success: false,
+        isDuplicate: true,
+        message: `⚠️ El conductor con RUT "${displayRut}" ya se encuentra registrado como "${existing.nombreConductor}" (${existing.transportista}).`
+      };
+    }
+
+    const formattedItem: ConductorItem = {
+      rutConductor: displayRut,
+      nombreConductor: item.nombreConductor.trim().toUpperCase(),
+      transportista: (item.transportista || 'GENERAL').trim().toUpperCase()
+    };
+
+    const updatedList = [formattedItem, ...conductores];
+    localStorage.setItem(STORAGE_KEYS.CONDUCTORES, JSON.stringify(updatedList));
+    this.notifyListeners();
+    FirestoreService.saveConductorSingle(formattedItem).catch(err => {
+      console.warn('Error syncing single conductor to Firestore:', err);
+    });
+
+    return {
+      success: true,
+      message: `✅ Conductor "${formattedItem.nombreConductor}" agregado exitosamente a la base de datos.`
+    };
   }
 
   // --- PRODUCTOS ---
@@ -130,19 +212,109 @@ export class StorageService {
     });
   }
 
+  // Add single Producto with duplicate checking and uppercase enforcement
+  static addProducto(item: ProductoItem): { success: boolean; isDuplicate?: boolean; message: string } {
+    const productos = this.getProductos();
+    const cleanCodigo = item.codigoProducto.trim().toUpperCase();
+
+    if (!cleanCodigo) {
+      return { success: false, message: 'El código de producto es obligatorio.' };
+    }
+
+    const existing = productos.find(
+      p => p.codigoProducto.trim().toUpperCase() === cleanCodigo
+    );
+
+    if (existing) {
+      return {
+        success: false,
+        isDuplicate: true,
+        message: `⚠️ El código de producto "${cleanCodigo}" ya existe en la base de datos (${existing.especie} - Largo ${existing.largo}m).`
+      };
+    }
+
+    const formattedItem: ProductoItem = {
+      especie: (item.especie || 'PINO RADIATA').trim().toUpperCase(),
+      codigoProducto: cleanCodigo,
+      largo: String(item.largo || '0').trim()
+    };
+
+    const updatedList = [formattedItem, ...productos];
+    localStorage.setItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(updatedList));
+    this.notifyListeners();
+    FirestoreService.saveProductoSingle(formattedItem).catch(err => {
+      console.warn('Error syncing single producto to Firestore:', err);
+    });
+
+    return {
+      success: true,
+      message: `✅ Producto "${cleanCodigo}" agregado exitosamente a la base de datos.`
+    };
+  }
+
+  // Helper to check if a ticket is pending / awaiting closure
+  static isTicketPending(ticket: TicketItem): boolean {
+    if (ticket.tipo === 'despacho') {
+      const missingGuia = !ticket.numeroGuia || ticket.numeroGuia.trim() === '';
+      const missingPesos = !ticket.pesoTara || ticket.pesoTara.trim() === '' || !ticket.pesoNeto || ticket.pesoNeto.trim() === '';
+      return missingGuia || missingPesos;
+    } else {
+      // Recepción: pendiente si no tiene tara/neto registrado
+      const missingPesos = !ticket.pesoTara || ticket.pesoTara.trim() === '' || !ticket.pesoNeto || ticket.pesoNeto.trim() === '';
+      return missingPesos;
+    }
+  }
+
+  // Helper to check if a ticket is within the 48-hour temporal window
+  static isWithin48Hours(ticket: TicketItem, maxHours: number = 48): boolean {
+    const timeStr = ticket.createdAt || ticket.updatedAt || ticket.fechaPrograma;
+    if (!timeStr) return true;
+    const time = new Date(timeStr).getTime();
+    if (isNaN(time)) return true;
+    const diffHours = (Date.now() - time) / (1000 * 60 * 60);
+    return diffHours <= maxHours;
+  }
+
+  // Calculate hours remaining in 48-hour buffer
+  static getHoursRemaining(ticket: TicketItem, maxHours: number = 48): number {
+    const timeStr = ticket.createdAt || ticket.updatedAt || ticket.fechaPrograma;
+    if (!timeStr) return maxHours;
+    const time = new Date(timeStr).getTime();
+    if (isNaN(time)) return maxHours;
+    const elapsedHours = (Date.now() - time) / (1000 * 60 * 60);
+    const remaining = maxHours - elapsedHours;
+    return remaining > 0 ? Math.round(remaining * 10) / 10 : 0;
+  }
+
   // --- TICKETS ---
+  static sortTicketsDesc(tickets: TicketItem[]): TicketItem[] {
+    return [...tickets].sort((a, b) => {
+      const dateTimeA = `${a.fechaPrograma || ''}T${a.hora || '00:00'}`;
+      const dateTimeB = `${b.fechaPrograma || ''}T${b.hora || '00:00'}`;
+      if (dateTimeA !== dateTimeB) {
+        return dateTimeB.localeCompare(dateTimeA);
+      }
+      const timeA = a.createdAt || a.updatedAt || '';
+      const timeB = b.createdAt || b.updatedAt || '';
+      if (timeA !== timeB) {
+        return timeB.localeCompare(timeA);
+      }
+      return String(b.id).localeCompare(String(a.id));
+    });
+  }
+
   static getTickets(): TicketItem[] {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.TICKETS);
       if (!data) {
         localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(INITIAL_TICKETS));
         INITIAL_TICKETS.forEach(t => FirestoreService.saveTicket(t).catch(() => {}));
-        return INITIAL_TICKETS;
+        return this.sortTicketsDesc(INITIAL_TICKETS);
       }
       const parsed = JSON.parse(data);
-      return Array.isArray(parsed) ? parsed : INITIAL_TICKETS;
+      return this.sortTicketsDesc(Array.isArray(parsed) ? parsed : INITIAL_TICKETS);
     } catch {
-      return INITIAL_TICKETS;
+      return this.sortTicketsDesc(INITIAL_TICKETS);
     }
   }
 

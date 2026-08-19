@@ -14,11 +14,16 @@ import {
   ChevronDown,
   Calculator,
   Scale,
-  Layers
+  Layers,
+  Plus,
+  ShieldCheck,
+  UserCheck,
+  Trees
 } from 'lucide-react';
-import { ConductorItem, PatenteItem, ProductoItem, TicketItem, TicketType } from '../types';
+import { ConductorItem, PatenteItem, ProductoItem, TicketItem, TicketType, UserAccount } from '../types';
 import { StorageService } from '../services/storageService';
 import { CubicacionModal } from './CubicacionModal';
+import { QuickAddMasterModal, MasterType } from './QuickAddMasterModal';
 
 interface TicketModalProps {
   isOpen: boolean;
@@ -28,6 +33,7 @@ interface TicketModalProps {
   onSave: (ticket: TicketItem) => void;
   onDelete: (id: string) => void;
   onPrintThermal?: (ticket: TicketItem) => void;
+  currentUser?: UserAccount | null;
 }
 
 export const TicketModal: React.FC<TicketModalProps> = ({
@@ -37,7 +43,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   defaultType,
   onSave,
   onDelete,
-  onPrintThermal
+  onPrintThermal,
+  currentUser
 }) => {
   if (!isOpen) return null;
 
@@ -45,6 +52,9 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   const [patentesDb, setPatentesDb] = useState<PatenteItem[]>([]);
   const [conductoresDb, setConductoresDb] = useState<ConductorItem[]>([]);
   const [productosDb, setProductosDb] = useState<ProductoItem[]>([]);
+
+  // Quick Add Master Modal State
+  const [quickAddType, setQuickAddType] = useState<MasterType | null>(null);
 
   // Form State
   const [tipo, setTipo] = useState<TicketType>(ticketToEdit ? ticketToEdit.tipo : defaultType);
@@ -291,6 +301,30 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     }
   };
 
+  // Callback when user adds a new master record via QuickAddMasterModal
+  const handleQuickItemAdded = (type: MasterType, item: PatenteItem | ConductorItem | ProductoItem) => {
+    if (type === 'patente') {
+      const p = item as PatenteItem;
+      setPatenteCamion(p.patenteCamion);
+      setSiglaCamion(p.siglaCamion || p.patenteCamion);
+      if (p.patenteCarro) setPatenteCarro(p.patenteCarro);
+      setTransportista(p.transportista);
+      if (!emseforDespacho) setEmseforDespacho(p.transportista);
+    } else if (type === 'conductor') {
+      const c = item as ConductorItem;
+      setRutConductor(c.rutConductor);
+      setNombreConductor(c.nombreConductor);
+      if (c.transportista && !transportista) {
+        setTransportista(c.transportista);
+      }
+    } else if (type === 'producto') {
+      const prod = item as ProductoItem;
+      setEspecie(prod.especie);
+      setCodigoProducto(prod.codigoProducto);
+      setLargo(prod.largo);
+    }
+  };
+
   // When switching Ticket Type:
   const handleTypeChange = (newT: TicketType) => {
     setTipo(newT);
@@ -308,8 +342,9 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!numeroGuia.trim()) {
-      alert('Por favor ingrese el NÚMERO DE GUÍA (campo obligatorio).');
+    // El número de guía es obligatorio en Recepción, pero en Despacho es opcional (se llena al final)
+    if (isReception && !numeroGuia.trim()) {
+      alert('Por favor ingrese el NÚMERO DE GUÍA (campo obligatorio en Recepción).');
       return;
     }
 
@@ -321,7 +356,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     const ticketData: TicketItem = {
       id: ticketToEdit ? ticketToEdit.id : `t-${Date.now()}`,
       tipo,
-      numeroGuia: numeroGuia.trim(),
+      numeroGuia: numeroGuia.trim().toUpperCase(),
       fechaPrograma,
       hora,
       patenteCamion: patenteCamion.trim().toUpperCase(),
@@ -330,8 +365,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       transportista: transportista.trim().toUpperCase() || 'TRANSPORTES GENERAL',
       rutConductor: rutConductor.trim().toUpperCase(),
       nombreConductor: nombreConductor.trim().toUpperCase(),
-      especie,
-      codigoProducto: codigoProducto || 'P0265RRCCAL1',
+      especie: especie.toUpperCase(),
+      codigoProducto: codigoProducto.trim().toUpperCase() || 'P0265RRCCAL1',
       largo: String(largo || '2.65'),
       fechaCorta,
       anoPlantacion: String(anoPlantacion || '2010'),
@@ -340,13 +375,18 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       pesoBruto: pesoBruto.trim(),
       pesoTara: pesoTara.trim(),
       pesoNeto: pesoNeto.trim(),
-      origen: origen.trim(),
-      destino: destino.trim(),
+      origen: origen.trim().toUpperCase(),
+      destino: destino.trim().toUpperCase(),
       zonaForestal: '',
-      emseforDespacho: emseforDespacho.trim() || transportista,
-      numeroGiro: isReception ? '' : numeroGiro.trim(),
-      grua: grua.trim(),
-      observaciones: observaciones.trim(),
+      emseforDespacho: (emseforDespacho.trim() || transportista).toUpperCase(),
+      numeroGiro: isReception ? '' : numeroGiro.trim().toUpperCase(),
+      grua: grua.trim().toUpperCase(),
+      observaciones: observaciones.trim().toUpperCase(),
+      // Auditoría y registro de usuario (Solo administrador puede ver estos campos)
+      creadoPor: ticketToEdit?.creadoPor || currentUser?.nombre || currentUser?.username || 'Operador',
+      creadoPorId: ticketToEdit?.creadoPorId || currentUser?.id,
+      creadoPorNombre: ticketToEdit?.creadoPorNombre || currentUser?.nombre,
+      modificadoPor: currentUser ? `${currentUser.nombre} (${currentUser.username})` : undefined,
       createdAt: ticketToEdit?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -368,7 +408,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       const currentTicket: TicketItem = {
         id: ticketToEdit ? ticketToEdit.id : `t-${Date.now()}`,
         tipo,
-        numeroGuia: numeroGuia.trim() || 'S/N',
+        numeroGuia: numeroGuia.trim().toUpperCase() || (isReception ? 'S/N' : 'PENDIENTE'),
         fechaPrograma,
         hora,
         patenteCamion: patenteCamion.trim().toUpperCase(),
@@ -377,8 +417,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
         transportista: transportista.trim().toUpperCase() || 'GENERAL',
         rutConductor: rutConductor.trim().toUpperCase(),
         nombreConductor: nombreConductor.trim().toUpperCase(),
-        especie,
-        codigoProducto: codigoProducto || 'P0265RRCCAL1',
+        especie: especie.toUpperCase(),
+        codigoProducto: (codigoProducto || 'P0265RRCCAL1').toUpperCase(),
         largo: String(largo || '2.65'),
         fechaCorta,
         anoPlantacion: String(anoPlantacion || '2010'),
@@ -387,13 +427,13 @@ export const TicketModal: React.FC<TicketModalProps> = ({
         pesoBruto: pesoBruto.trim(),
         pesoTara: pesoTara.trim(),
         pesoNeto: pesoNeto.trim(),
-        origen: origen.trim(),
-        destino: destino.trim(),
+        origen: origen.trim().toUpperCase(),
+        destino: destino.trim().toUpperCase(),
         zonaForestal: '',
-        emseforDespacho: emseforDespacho.trim(),
-        numeroGiro: isReception ? '' : numeroGiro.trim(),
-        grua: grua.trim(),
-        observaciones: observaciones.trim(),
+        emseforDespacho: emseforDespacho.trim().toUpperCase(),
+        numeroGiro: isReception ? '' : numeroGiro.trim().toUpperCase(),
+        grua: grua.trim().toUpperCase(),
+        observaciones: observaciones.trim().toUpperCase(),
         createdAt: ticketToEdit?.createdAt || new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -465,16 +505,22 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 <label className="block text-[11px] font-black uppercase text-amber-950 mb-1 flex items-center gap-1">
                   <FileText className="w-3.5 h-3.5 text-[#D37608]" />
                   <span>NÚMERO DE GUÍA</span>
-                  <span className="text-rose-600 font-bold">*</span>
+                  {isReception ? (
+                    <span className="text-rose-600 font-bold">*</span>
+                  ) : (
+                    <span className="text-stone-500 font-bold text-[9px] bg-amber-200/80 px-1 py-0.5 rounded ml-1">
+                      OPCIONAL
+                    </span>
+                  )}
                 </label>
                 <input
                   id="input-ticket-guia"
                   type="text"
-                  required
-                  placeholder="Ej: 10075160"
+                  required={isReception}
+                  placeholder={isReception ? "Ej: 10075160 (Obligatorio)" : "Guía al finalizar o dejar vacío..."}
                   value={numeroGuia}
-                  onChange={(e) => setNumeroGuia(e.target.value)}
-                  className="w-full h-9 px-3 text-sm bg-white border-2 border-[#D37608] rounded focus:ring-2 focus:ring-[#D37608]/40 outline-none font-mono font-black text-stone-900 shadow-xs"
+                  onChange={(e) => setNumeroGuia(e.target.value.toUpperCase())}
+                  className="w-full h-9 px-3 text-sm uppercase bg-white border-2 border-[#D37608] rounded focus:ring-2 focus:ring-[#D37608]/40 outline-none font-mono font-black text-stone-900 shadow-xs"
                 />
               </div>
 
@@ -525,11 +571,22 @@ export const TicketModal: React.FC<TicketModalProps> = ({
 
             {/* Section 1: DATOS DEL CAMIÓN Y TRANSPORTISTA */}
             <div className="border border-stone-200 rounded p-4 bg-white shadow-2xs">
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 text-[#676057]">
-                <Truck className="w-4 h-4 text-[#BCB703]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  1. Datos de Patente y Transporte (Búsqueda Automática)
-                </h3>
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-stone-100 text-[#676057]">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-[#BCB703]" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider">
+                    1. Datos de Patente y Transporte (Búsqueda Automática)
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  id="btn-quick-add-patente-in-modal"
+                  onClick={() => setQuickAddType('patente')}
+                  className="text-[11px] font-bold text-[#D37608] hover:text-[#b86506] flex items-center gap-1 bg-amber-50 hover:bg-amber-100 px-2 py-0.5 rounded border border-amber-200 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nueva Patente</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
@@ -621,12 +678,23 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 <div className="flex items-center gap-2">
                   <User className="w-4 h-4 text-[#BCB703]" />
                   <h3 className="text-xs font-bold uppercase tracking-wider">
-                    2. Conductor (Filtrado exclusivo por Transportista: <span className="text-[#D37608]">{transportista || 'Todos'}</span>)
+                    2. Conductor (Filtrado por: <span className="text-[#D37608]">{transportista || 'Todos'}</span>)
                   </h3>
                 </div>
-                <span className="text-[10px] text-stone-500">
-                  {availableConductores.length} conductores disponibles
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-stone-500">
+                    {availableConductores.length} disponibles
+                  </span>
+                  <button
+                    type="button"
+                    id="btn-quick-add-conductor-in-modal"
+                    onClick={() => setQuickAddType('conductor')}
+                    className="text-[11px] font-bold text-[#0284c7] hover:text-[#0369a1] flex items-center gap-1 bg-sky-50 hover:bg-sky-100 px-2 py-0.5 rounded border border-sky-200 transition-colors"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>+ Nuevo Conductor</span>
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -683,11 +751,22 @@ export const TicketModal: React.FC<TicketModalProps> = ({
 
             {/* Section 3: ESPECIE, CÓDIGO PRODUCTO, MEDIDAS Y CUBICACIÓN */}
             <div className="border border-stone-200 rounded p-4 bg-white shadow-2xs">
-              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 text-[#676057]">
-                <TreePine className="w-4 h-4 text-[#BCB703]" />
-                <h3 className="text-xs font-bold uppercase tracking-wider">
-                  3. Especie, Código de Producto y Cubicación de Volumen
-                </h3>
+              <div className="flex items-center justify-between mb-3 pb-2 border-b border-stone-100 text-[#676057]">
+                <div className="flex items-center gap-2">
+                  <TreePine className="w-4 h-4 text-[#BCB703]" />
+                  <h3 className="text-xs font-bold uppercase tracking-wider">
+                    3. Especie, Código de Producto y Cubicación de Volumen
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  id="btn-quick-add-producto-in-modal"
+                  onClick={() => setQuickAddType('producto')}
+                  className="text-[11px] font-bold text-[#15803d] hover:text-[#166534] flex items-center gap-1 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded border border-emerald-200 transition-colors"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Nuevo Producto</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
@@ -879,17 +958,17 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                     <input
                       id="input-ticket-origen"
                       type="text"
-                      placeholder="Ingrese predio o bosque de origen..."
+                      placeholder="INGRESE PREDIO O BOSQUE DE ORIGEN..."
                       value={origen}
-                      onChange={(e) => setOrigen(e.target.value)}
-                      className="w-full h-8 px-2.5 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
+                      onChange={(e) => setOrigen(e.target.value.toUpperCase())}
+                      className="w-full h-8 px-2.5 text-xs uppercase bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
                     />
                   ) : (
                     <select
                       id="select-ticket-origen-despacho"
                       value={origen}
-                      onChange={(e) => setOrigen(e.target.value)}
-                      className="w-full h-8 px-2 text-xs font-bold bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
+                      onChange={(e) => setOrigen(e.target.value.toUpperCase())}
+                      className="w-full h-8 px-2 text-xs font-bold uppercase bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
                     >
                       <option value="N048 CN RANQUIL">N048 CN RANQUIL</option>
                       <option value="N817 CN DESCORTEZADO RANQUIL">N817 CN DESCORTEZADO RANQUIL</option>
@@ -909,8 +988,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                     <select
                       id="select-ticket-destino-recepcion"
                       value={destino}
-                      onChange={(e) => setDestino(e.target.value)}
-                      className="w-full h-8 px-2 text-xs font-bold bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
+                      onChange={(e) => setDestino(e.target.value.toUpperCase())}
+                      className="w-full h-8 px-2 text-xs font-bold uppercase bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
                     >
                       <option value="N048 CN RANQUIL">N048 CN RANQUIL</option>
                       <option value="N817 CN DESCORTEZADO RANQUIL">N817 CN DESCORTEZADO RANQUIL</option>
@@ -919,8 +998,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                     <select
                       id="select-ticket-destino-despacho"
                       value={destino}
-                      onChange={(e) => setDestino(e.target.value)}
-                      className="w-full h-8 px-2 text-xs font-bold bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
+                      onChange={(e) => setDestino(e.target.value.toUpperCase())}
+                      className="w-full h-8 px-2 text-xs font-bold uppercase bg-white border-2 border-stone-300 rounded focus:border-[#BCB703] outline-none text-stone-800"
                     >
                       <option value="N011 CP NUEVA ALDEA [N011]">N011 CP NUEVA ALDEA [N011]</option>
                       <option value="N048 CN RANQUIL">N048 CN RANQUIL</option>
@@ -940,8 +1019,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                       type="text"
                       placeholder="Ej: 1005597"
                       value={numeroGiro}
-                      onChange={(e) => setNumeroGiro(e.target.value)}
-                      className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
+                      onChange={(e) => setNumeroGiro(e.target.value.toUpperCase())}
+                      className="w-full h-8 px-2.5 text-xs font-mono uppercase bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
                     />
                   </div>
                 )}
@@ -954,10 +1033,10 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                   <input
                     id="input-ticket-grua"
                     type="text"
-                    placeholder="Completar grúa (ej: GRU-01)..."
+                    placeholder="COMPLETAR GRÚA (EJ: GRU-01)..."
                     value={grua}
-                    onChange={(e) => setGrua(e.target.value)}
-                    className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
+                    onChange={(e) => setGrua(e.target.value.toUpperCase())}
+                    className="w-full h-8 px-2.5 text-xs font-mono uppercase bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
                   />
                 </div>
               </div>
@@ -982,10 +1061,10 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                   <input
                     id="input-ticket-numero-ruma"
                     type="text"
-                    placeholder="Ej: RUMA-04B"
+                    placeholder="EJ: RUMA-04B"
                     value={numeroRuma}
-                    onChange={(e) => setNumeroRuma(e.target.value)}
-                    className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
+                    onChange={(e) => setNumeroRuma(e.target.value.toUpperCase())}
+                    className="w-full h-8 px-2.5 text-xs font-mono uppercase bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
                   />
                 </div>
 
@@ -1060,13 +1139,54 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 <input
                   id="input-ticket-observaciones"
                   type="text"
-                  placeholder="Observaciones de recepción, pesaje o detalle de cubicación..."
+                  placeholder="OBSERVACIONES DE RECEPCIÓN, PESAJE O DETALLE..."
                   value={observaciones}
-                  onChange={(e) => setObservaciones(e.target.value)}
-                  className="w-full h-8 px-2.5 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
+                  onChange={(e) => setObservaciones(e.target.value.toUpperCase())}
+                  className="w-full h-8 px-2.5 text-xs uppercase bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
                 />
               </div>
             </div>
+
+            {/* Section 6: AUDITORÍA Y TRAZABILIDAD (SOLO VISIBLE PARA ADMINISTRADOR - BASE TEMPORAL 48H) */}
+            {currentUser?.rol === 'admin' && ticketToEdit && (
+              <div id="admin-audit-section" className="border border-sky-300 rounded p-3.5 bg-sky-50/70 text-sky-950 shadow-2xs">
+                <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-sky-200">
+                  <div className="flex items-center gap-1.5 font-bold text-xs uppercase tracking-wider text-sky-900">
+                    <ShieldCheck className="w-4 h-4 text-sky-700" />
+                    <span>Auditoría de Registro (Exclusivo Administrador - Base Temporal 48h)</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[10px] font-bold bg-sky-200 text-sky-900 px-2 py-0.5 rounded">
+                    <Clock className="w-3 h-3" />
+                    <span>{StorageService.getHoursRemaining(ticketToEdit)} hrs en BD temporal</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px]">
+                  <div>
+                    <span className="text-stone-500 block uppercase font-bold text-[9.5px]">Ingresado por:</span>
+                    <span className="font-bold text-stone-900 font-mono">
+                      {ticketToEdit.creadoPor || ticketToEdit.creadoPorNombre || 'No registrado'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-stone-500 block uppercase font-bold text-[9.5px]">Fecha / Hora Creación:</span>
+                    <span className="font-semibold text-stone-800 font-mono">
+                      {ticketToEdit.createdAt ? new Date(ticketToEdit.createdAt).toLocaleString('es-CL') : '-'}
+                    </span>
+                  </div>
+
+                  <div>
+                    <span className="text-stone-500 block uppercase font-bold text-[9.5px]">Última Modificación:</span>
+                    <span className="font-semibold text-stone-800 font-mono">
+                      {ticketToEdit.modificadoPor 
+                        ? `${ticketToEdit.modificadoPor} (${new Date(ticketToEdit.updatedAt).toLocaleTimeString('es-CL')})` 
+                        : 'Sin modificaciones'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </form>
 
           {/* Modal Footer Actions */}
@@ -1119,6 +1239,14 @@ export const TicketModal: React.FC<TicketModalProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Quick Add Master Modal */}
+      <QuickAddMasterModal
+        isOpen={!!quickAddType}
+        onClose={() => setQuickAddType(null)}
+        initialType={quickAddType || 'patente'}
+        onItemAdded={handleQuickItemAdded}
+      />
 
       {/* Cubicacion Modal */}
       <CubicacionModal
