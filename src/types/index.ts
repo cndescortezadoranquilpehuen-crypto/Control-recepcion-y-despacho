@@ -40,6 +40,11 @@ export interface TicketItem {
   fechaCorta: string;
   anoPlantacion: string;
   volumenMR: string;
+  // Campos de Báscula y Patio
+  numeroRuma?: string;
+  pesoBruto?: string;
+  pesoTara?: string;
+  pesoNeto?: string;
   origen: string;
   destino: string;
   zonaForestal: string;

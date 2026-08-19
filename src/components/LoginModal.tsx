@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyRound, User, Lock, AlertCircle, ShieldCheck, ArrowRight } from 'lucide-react';
+import { KeyRound, User, Lock, AlertCircle, ArrowRight } from 'lucide-react';
 import { UserAccount } from '../types';
 import { StorageService } from '../services/storageService';
 
@@ -16,8 +16,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const [username, setUsername] = useState('recepcion');
-  const [password, setPassword] = useState('123');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -42,11 +42,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     onClose();
   };
 
-  const handleQuickLogin = (demoUser: string, demoPass: string) => {
-    setUsername(demoUser);
-    setPassword(demoPass);
-  };
-
   return (
     <div 
       id="login-modal-backdrop" 
@@ -62,10 +57,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             <KeyRound className="w-6 h-6 text-[#BCB703]" />
           </div>
           <h2 className="text-base font-bold uppercase tracking-wider text-[#F2EDC9]">
-            Portal Administración
+            Portal Control Forestal
           </h2>
           <p className="text-xs text-neutral-400">
-            Control de Acceso y Roles de Recepción / Despacho
+            Recepción y Despacho - Ingreso con Credenciales
           </p>
         </div>
 
@@ -89,7 +84,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="ej: recepcion o admin"
+                placeholder="Ingrese su usuario..."
                 className="w-full h-9 pl-9 pr-3 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-mono"
               />
               <User className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -111,27 +106,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="w-full h-9 pl-9 pr-3 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
               />
               <Lock className="w-4 h-4 text-stone-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            </div>
-          </div>
-
-          {/* Quick Demo Credentials for Fast Switching */}
-          <div className="pt-2">
-            <p className="text-[11px] font-semibold text-stone-500 mb-1.5">Accesos rápidos de demostración:</p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('recepcion', '123')}
-                className="flex-1 py-1.5 px-2 bg-stone-100 hover:bg-stone-200 text-stone-800 rounded text-[11px] font-medium transition-colors border border-stone-200"
-              >
-                Recepcionista
-              </button>
-              <button
-                type="button"
-                onClick={() => handleQuickLogin('admin', '123')}
-                className="flex-1 py-1.5 px-2 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded text-[11px] font-medium transition-colors border border-amber-200"
-              >
-                Administrador
-              </button>
             </div>
           </div>
 

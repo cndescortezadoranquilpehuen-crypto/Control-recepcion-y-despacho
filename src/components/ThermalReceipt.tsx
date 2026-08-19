@@ -1,6 +1,6 @@
 import React from 'react';
 import { TicketItem } from '../types';
-import { Printer, X, Check, Scissors } from 'lucide-react';
+import { Printer, X, Scale, Layers } from 'lucide-react';
 
 interface ThermalReceiptModalProps {
   ticket: TicketItem | null;
@@ -51,34 +51,34 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         {/* Paper visual preview (Width 80mm, Max height 80mm ~ 8cm) */}
         <div className="p-6 bg-stone-100 flex flex-col items-center justify-center">
           <div className="text-[11px] text-stone-500 mb-2 font-mono">
-            Formato compacto ≤ 8 cm (80mm x 80mm)
+            Formato compacto ≤ 8 cm (80mm ancho x 80mm largo)
           </div>
 
           {/* Printable Container */}
           <div 
             id="thermal-printable-ticket"
-            className="w-[76mm] bg-white border border-stone-300 shadow-md p-3 font-mono text-[10px] leading-tight text-black print:border-none print:shadow-none print:w-[76mm] print:p-1"
+            className="w-[74mm] bg-white border border-stone-300 shadow-md p-2.5 font-mono text-[9px] leading-tight text-black print:border-none print:shadow-none print:w-[74mm] print:p-0"
             style={{ maxHeight: '80mm' }}
           >
             {/* Header */}
             <div className="text-center pb-1 border-b border-dashed border-black">
-              <p className="font-extrabold text-[12px] uppercase">
+              <p className="font-black text-[11px] uppercase tracking-wide">
                 {isReception ? 'TICKET RECEPCIÓN' : 'TICKET DESPACHO'}
               </p>
-              <p className="text-[9px] font-bold">CN RANQUIL - CONTROL FORESTAL</p>
-              <p className="text-[9px] font-extrabold tracking-wider mt-0.5">
+              <p className="text-[8.5px] font-bold">CN RANQUIL - CONTROL FORESTAL</p>
+              <p className="text-[9px] font-black tracking-wider mt-0.5">
                 GUÍA Nº: <span className="text-[11px] font-black">{ticket.numeroGuia || 'S/N'}</span>
               </p>
             </div>
 
             {/* Date & Time Row */}
-            <div className="flex justify-between py-1 border-b border-dashed border-black text-[9px]">
+            <div className="flex justify-between py-0.5 border-b border-dashed border-black text-[8.5px]">
               <span>FECHA: <strong>{ticket.fechaPrograma}</strong></span>
               <span>HORA: <strong>{ticket.hora}</strong></span>
             </div>
 
             {/* Truck & Driver Info */}
-            <div className="py-1 space-y-0.5 text-[9px] border-b border-dashed border-black">
+            <div className="py-0.5 space-y-0.5 text-[8.5px] border-b border-dashed border-black">
               <div className="flex justify-between">
                 <span>CAMIÓN: <strong>{ticket.patenteCamion}</strong> {ticket.siglaCamion ? `(${ticket.siglaCamion})` : ''}</span>
                 <span>CARRO: <strong>{ticket.patenteCarro || '-'}</strong></span>
@@ -89,28 +89,45 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
             </div>
 
             {/* Product & Volume (Highlighted) */}
-            <div className="py-1 space-y-0.5 text-[9px] border-b border-dashed border-black bg-stone-50 print:bg-transparent">
+            <div className="py-0.5 space-y-0.5 text-[8.5px] border-b border-dashed border-black bg-stone-50 print:bg-transparent">
               <p>ESPECIE: <strong>{ticket.especie}</strong></p>
               <div className="flex justify-between">
                 <span>COD: <strong>{ticket.codigoProducto}</strong></span>
                 <span>LARGO: <strong>{ticket.largo}m</strong></span>
               </div>
-              <div className="flex justify-between text-[11px] pt-0.5 font-bold">
+              <div className="flex justify-between text-[10px] pt-0.5 font-bold">
                 <span>VOLUMEN MR:</span>
-                <span className="font-black">{ticket.volumenMR} MR</span>
+                <span className="font-black">{ticket.volumenMR || '0.0'} MR</span>
               </div>
             </div>
 
+            {/* Pesos & Ruma (if present) */}
+            {(ticket.numeroRuma || ticket.pesoNeto || ticket.pesoBruto) && (
+              <div className="py-0.5 text-[8.5px] border-b border-dashed border-black">
+                {ticket.numeroRuma && (
+                  <p>Nº RUMA: <strong>{ticket.numeroRuma}</strong></p>
+                )}
+                <div className="flex justify-between">
+                  {ticket.pesoBruto && <span>BRUTO: <strong>{ticket.pesoBruto}kg</strong></span>}
+                  {ticket.pesoTara && <span>TARA: <strong>{ticket.pesoTara}kg</strong></span>}
+                  {ticket.pesoNeto && <span>NETO: <strong>{ticket.pesoNeto}kg</strong></span>}
+                </div>
+              </div>
+            )}
+
             {/* Origin & Destination */}
-            <div className="py-1 text-[8.5px] leading-tight border-b border-dashed border-black">
+            <div className="py-0.5 text-[8px] leading-tight border-b border-dashed border-black">
               <p className="truncate">ORIGEN: <strong>{ticket.origen || '-'}</strong></p>
               <p className="truncate">DESTINO: <strong>{ticket.destino || '-'}</strong></p>
-              {ticket.numeroGiro && <p>Nº GIRO: <strong>{ticket.numeroGiro}</strong></p>}
+              {!isReception && ticket.numeroGiro && (
+                <p>Nº GIRO: <strong>{ticket.numeroGiro}</strong></p>
+              )}
+              {ticket.grua && <p>GRÚA: <strong>{ticket.grua}</strong></p>}
             </div>
 
-            {/* Footer cut mark */}
-            <div className="pt-1 text-center text-[8px] text-stone-500 print:text-black">
-              *** CONTROL DE PATIO ***
+            {/* Footer */}
+            <div className="pt-0.5 text-center text-[7.5px] text-stone-500 print:text-black">
+              *** CONTROL PATIO CITIZEN CT-S4000 ***
             </div>
           </div>
         </div>

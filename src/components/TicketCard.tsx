@@ -1,19 +1,19 @@
 import React from 'react';
-import { Clock, Calendar, Truck, Package, Edit3, Trash2, Tag, Printer, FileText } from 'lucide-react';
+import { Clock, Calendar, Truck, Package, Edit3, Trash2, Tag, Printer, FileText, Scale, Layers } from 'lucide-react';
 import { TicketItem } from '../types';
 
 interface TicketCardProps {
   ticket: TicketItem;
-  onOpenEdit: (ticket: TicketItem) => void;
+  onEdit: (ticket: TicketItem) => void;
   onDelete: (id: string) => void;
-  onPrintThermal?: (ticket: TicketItem) => void;
+  onPrint?: (ticket: TicketItem) => void;
 }
 
 export const TicketCard: React.FC<TicketCardProps> = ({
   ticket,
-  onOpenEdit,
+  onEdit,
   onDelete,
-  onPrintThermal
+  onPrint
 }) => {
   const isReception = ticket.tipo === 'recepcion';
   const accentBorderColor = isReception ? 'bg-[#1e3a8a]' : 'bg-[#D37608]';
@@ -31,34 +31,43 @@ export const TicketCard: React.FC<TicketCardProps> = ({
     return dateStr;
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onEdit) {
+      onEdit(ticket);
+    }
+  };
+
   return (
     <div
       id={`ticket-card-${ticket.id}`}
-      onClick={() => onOpenEdit(ticket)}
-      className="group relative bg-white border border-stone-200 rounded-sm shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col cursor-pointer hover:border-stone-400"
+      onClick={handleCardClick}
+      className="group relative bg-white border-2 border-stone-200 hover:border-[#BCB703] rounded shadow-xs hover:shadow-md transition-all duration-150 overflow-hidden flex flex-col cursor-pointer active:scale-[0.99]"
+      title="Haga clic para ver o editar los datos del ticket"
     >
       {/* Left colored bar accent */}
       <div className={`absolute left-0 top-0 bottom-0 w-2.5 ${accentBorderColor}`} />
 
-      {/* Card Content with left padding to offset accent bar */}
-      <div className="pl-6 pr-4 pt-3.5 pb-3 flex-1 flex flex-col justify-between">
+      {/* Card Content */}
+      <div className="pl-5 pr-3.5 pt-3 pb-2.5 flex-1 flex flex-col justify-between">
         
         {/* Top Header: Patente(Sigla) & Guías N° (Prominente) */}
-        <div className="flex items-start justify-between border-b border-stone-100 pb-2 mb-2">
+        <div className="flex items-start justify-between border-b border-stone-100 pb-2 mb-1.5">
           <div>
-            <span className="text-sm font-extrabold text-stone-900 tracking-wide">
-              {ticket.patenteCamion || 'SIN PATENTE'}{ticket.siglaCamion ? `(${ticket.siglaCamion})` : ''}
+            <span className="text-sm font-black text-stone-900 tracking-wide block">
+              {ticket.patenteCamion || 'SIN PATENTE'}{ticket.siglaCamion ? ` (${ticket.siglaCamion})` : ''}
             </span>
             {ticket.patenteCarro && (
-              <span className="block text-[10px] text-stone-500 font-mono">
+              <span className="text-[10px] text-stone-500 font-mono font-bold block">
                 Carro: {ticket.patenteCarro}
               </span>
             )}
           </div>
-          <div className="text-right bg-amber-50/80 px-2 py-0.5 rounded border border-amber-200">
+
+          <div className="text-right bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
             <span className="text-[9px] uppercase font-bold text-amber-900 block leading-tight flex items-center gap-1 justify-end">
               <FileText className="w-2.5 h-2.5 text-[#D37608]" />
-              GUÍAS Nº:
+              GUÍA Nº:
             </span>
             <span className="text-xs font-black text-stone-900 font-mono tracking-wider">
               {ticket.numeroGuia || 'S/N'}
@@ -67,46 +76,74 @@ export const TicketCard: React.FC<TicketCardProps> = ({
         </div>
 
         {/* Transportista & Route */}
-        <div className="space-y-1 my-1">
-          <p className="text-xs font-bold text-stone-800 uppercase tracking-tight truncate" title={ticket.transportista}>
+        <div className="space-y-0.5 my-1">
+          <p className="text-xs font-extrabold text-stone-800 uppercase tracking-tight truncate" title={ticket.transportista}>
             {ticket.transportista || 'TRANSPORTISTA NO ESPECIFICADO'}
           </p>
           
           <div className="text-[11px] text-stone-600 space-y-0.5">
             <p className="truncate">
-              <span className="font-semibold text-stone-700">ORIGEN:</span> {ticket.origen || '(Sin origen especificado)'}
+              <span className="font-bold text-stone-700">ORIGEN:</span> {ticket.origen || '(Sin origen especificado)'}
             </p>
             <p className="truncate">
-              <span className="font-semibold text-stone-700">DESTINO:</span> <strong className="text-stone-900">{ticket.destino || 'N048 CN RANQUIL'}</strong>
+              <span className="font-bold text-stone-700">DESTINO:</span> <strong className="text-stone-900">{ticket.destino || 'N048 CN RANQUIL'}</strong>
             </p>
             {ticket.nombreConductor && (
-              <p className="truncate text-stone-500 text-[10px]">
-                <span className="font-semibold text-stone-600">CONDUCTOR:</span> {ticket.nombreConductor}
+              <p className="truncate text-stone-600 text-[10.5px]">
+                <span className="font-bold text-stone-700">CHOFER:</span> {ticket.nombreConductor}
               </p>
             )}
           </div>
         </div>
 
-        {/* Meta Info: Hora, Fecha, Giro */}
-        <div className="flex items-center justify-between text-[11px] text-stone-600 pt-2 border-t border-stone-100 my-2">
+        {/* Weights & Ruma Row (if present) */}
+        {(ticket.numeroRuma || ticket.pesoNeto || ticket.pesoBruto) && (
+          <div className="my-1.5 p-1.5 bg-stone-50 rounded border border-stone-200 grid grid-cols-2 gap-1 text-[10px] font-mono">
+            {ticket.numeroRuma && (
+              <div className="flex items-center gap-1 text-stone-700 col-span-2">
+                <Layers className="w-3 h-3 text-[#BCB703] flex-shrink-0" />
+                <span>N° Ruma: <strong className="text-stone-900">{ticket.numeroRuma}</strong></span>
+              </div>
+            )}
+            {ticket.pesoBruto && (
+              <div>
+                <span className="text-stone-500">P. Bruto:</span> <strong>{ticket.pesoBruto} kg</strong>
+              </div>
+            )}
+            {ticket.pesoNeto && (
+              <div className="text-right">
+                <span className="text-[#D37608] font-bold">P. Neto:</span> <strong className="text-stone-900">{ticket.pesoNeto} kg</strong>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Meta Info: Hora, Fecha, Giro (if Despacho) / Grúa */}
+        <div className="flex items-center justify-between text-[11px] text-stone-600 pt-1.5 border-t border-stone-100 my-1">
           <div className="flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-stone-500" />
+            <Clock className="w-3 h-3 text-stone-400" />
             <span className="font-mono text-xs">{ticket.hora || '08:00'}</span>
           </div>
 
           <div className="flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5 text-stone-500" />
+            <Calendar className="w-3 h-3 text-stone-400" />
             <span className="font-mono text-xs">{formatDateDisplay(ticket.fechaPrograma)}</span>
           </div>
 
-          <div className="flex items-center gap-1 text-stone-700" title="Número de Giro o Sigla">
-            <Truck className="w-3.5 h-3.5 text-stone-600" />
-            <span className="font-mono text-xs font-medium">{ticket.numeroGiro || ticket.siglaCamion || '1004000'}</span>
-          </div>
+          {!isReception && ticket.numeroGiro ? (
+            <div className="flex items-center gap-1 text-stone-700" title="Número de Giro">
+              <Truck className="w-3 h-3 text-stone-500" />
+              <span className="font-mono text-xs font-bold text-stone-800">Giro: {ticket.numeroGiro}</span>
+            </div>
+          ) : ticket.grua ? (
+            <span className="font-mono text-[10px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-700">
+              Grúa: {ticket.grua}
+            </span>
+          ) : null}
         </div>
 
         {/* Bottom Product Banner */}
-        <div className="mt-1 flex items-center justify-between bg-stone-100/90 rounded px-2.5 py-1.5 border border-stone-200">
+        <div className="mt-1 flex items-center justify-between bg-stone-100 rounded px-2 py-1 border border-stone-200">
           <div className="flex items-center gap-1.5 overflow-hidden">
             <Package className="w-3.5 h-3.5 text-stone-600 flex-shrink-0" />
             <span className="text-xs font-bold font-mono text-stone-800 truncate" title={ticket.codigoProducto}>
@@ -117,40 +154,49 @@ export const TicketCard: React.FC<TicketCardProps> = ({
           {ticket.volumenMR && (
             <div className="flex items-center gap-1 pl-2 text-stone-700 font-mono text-[11px] flex-shrink-0">
               <span className="font-extrabold text-[#D37608]">{ticket.volumenMR}</span>
-              <span className="text-[10px] text-stone-500">MR</span>
+              <span className="text-[10px] text-stone-500 font-bold">MR</span>
             </div>
           )}
         </div>
 
-        {/* Action quick buttons on hover */}
-        <div className="mt-2 pt-1 flex items-center justify-between opacity-80 group-hover:opacity-100 transition-opacity">
+        {/* Action quick buttons on footer */}
+        <div className="mt-2 pt-1.5 flex items-center justify-between border-t border-stone-100">
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${tagBg}`}>
             {isReception ? 'Recepción' : 'Despacho'}
           </span>
 
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-            {onPrintThermal && (
+            {onPrint && (
               <button
                 id={`btn-print-ticket-${ticket.id}`}
-                onClick={() => onPrintThermal(ticket)}
-                className="p-1 text-[#676057] hover:text-[#BCB703] hover:bg-stone-100 rounded"
-                title="Imprimir ticket en impresora térmica CITIZEN CT-S4000 (≤ 8cm)"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPrint(ticket);
+                }}
+                className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded transition-colors"
+                title="Imprimir ticket térmico CITIZEN CT-S4000 (≤ 8cm)"
               >
                 <Printer className="w-3.5 h-3.5" />
               </button>
             )}
             <button
               id={`btn-edit-ticket-${ticket.id}`}
-              onClick={() => onOpenEdit(ticket)}
-              className="p-1 text-stone-500 hover:text-stone-900 hover:bg-stone-100 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(ticket);
+              }}
+              className="p-1.5 text-stone-600 hover:text-stone-900 hover:bg-stone-100 rounded transition-colors"
               title="Ver y editar evento"
             >
               <Edit3 className="w-3.5 h-3.5" />
             </button>
             <button
               id={`btn-delete-ticket-${ticket.id}`}
-              onClick={() => onDelete(ticket.id)}
-              className="p-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded"
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(ticket.id);
+              }}
+              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
               title="Eliminar evento"
             >
               <Trash2 className="w-3.5 h-3.5" />

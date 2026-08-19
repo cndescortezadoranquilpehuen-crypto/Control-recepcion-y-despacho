@@ -1,19 +1,23 @@
 import React, { useState } from 'react';
 import { ChevronUp, ChevronDown, RotateCcw, Search, X, FileText } from 'lucide-react';
-import { FilterState } from '../types';
+import { FilterState, TicketType } from '../types';
 
 interface FilterBarProps {
   filters: FilterState;
   setFilters: React.Dispatch<React.SetStateAction<FilterState>>;
   onReset: () => void;
-  onSearch: () => void;
+  onSearch?: () => void;
+  totalCount?: number;
+  tipo?: TicketType;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
   filters,
   setFilters,
   onReset,
-  onSearch
+  onSearch,
+  totalCount,
+  tipo
 }) => {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -25,6 +29,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
     setFilters(prev => ({ ...prev, origen: '' }));
   };
 
+  const isReception = tipo === 'recepcion';
+
   return (
     <div id="filter-container" className="bg-white border-b-2 border-[#676057] shadow-sm mb-6 rounded-t-sm overflow-hidden">
       {/* Header */}
@@ -33,9 +39,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className="px-4 py-2 bg-stone-100/90 border-b border-stone-200 flex items-center justify-between cursor-pointer hover:bg-stone-200/60 transition-colors"
       >
-        <span className="text-xs font-bold uppercase tracking-wider text-stone-800 flex items-center gap-2">
-          FILTROS DE BÚSQUEDA
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold uppercase tracking-wider text-stone-800">
+            FILTROS DE BÚSQUEDA {tipo ? `(${tipo.toUpperCase()})` : ''}
+          </span>
+          {typeof totalCount === 'number' && (
+            <span className="px-2 py-0.5 bg-[#BCB703] text-stone-900 text-[11px] font-extrabold rounded-full">
+              {totalCount} {totalCount === 1 ? 'resultado' : 'resultados'}
+            </span>
+          )}
+        </div>
         <button 
           id="btn-toggle-filters"
           className="text-stone-600 hover:text-stone-900 p-1"
@@ -63,16 +76,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               />
             </div>
 
-            {/* NÚMERO DE GUÍA */}
+            {/* NÚMERO DE GUÍA (Y N° GIRO EN DESPACHO) */}
             <div>
               <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1 flex items-center gap-1">
                 <FileText className="w-3.5 h-3.5 text-[#D37608]" />
-                <span>NÚMERO DE GUÍA</span>
+                <span>{isReception ? 'NÚMERO DE GUÍA' : 'N° GUÍA O N° GIRO'}</span>
               </label>
               <input
                 id="input-filter-guia"
                 type="text"
-                placeholder="Ej: 10075160"
+                placeholder={isReception ? "Buscar por N° Guía..." : "Buscar por Guía o Giro..."}
                 value={filters.numeroGiro}
                 onChange={(e) => handleChange('numeroGiro', e.target.value)}
                 className="w-full h-8 px-2.5 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] focus:ring-1 focus:ring-[#BCB703] outline-none text-stone-800 font-mono font-bold"
@@ -162,14 +175,16 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               <span>LIMPIAR</span>
             </button>
 
-            <button
-              id="btn-filter-buscar"
-              onClick={onSearch}
-              className="px-5 py-1.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase tracking-wider rounded transition-colors shadow-sm flex items-center gap-1.5"
-            >
-              <Search className="w-3.5 h-3.5" />
-              <span>BUSCAR</span>
-            </button>
+            {onSearch && (
+              <button
+                id="btn-filter-buscar"
+                onClick={onSearch}
+                className="px-5 py-1.5 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 text-xs font-bold uppercase tracking-wider rounded transition-colors shadow-sm flex items-center gap-1.5"
+              >
+                <Search className="w-3.5 h-3.5" />
+                <span>BUSCAR</span>
+              </button>
+            )}
           </div>
         </div>
       )}

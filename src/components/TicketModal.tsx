@@ -12,7 +12,9 @@ import {
   MapPin, 
   Printer,
   ChevronDown,
-  Calculator
+  Calculator,
+  Scale,
+  Layers
 } from 'lucide-react';
 import { ConductorItem, PatenteItem, ProductoItem, TicketItem, TicketType } from '../types';
 import { StorageService } from '../services/storageService';
@@ -73,6 +75,12 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   // Volumen MR and Cubicacion
   const [volumenMR, setVolumenMR] = useState(ticketToEdit?.volumenMR || '');
   const [isCubicacionOpen, setIsCubicacionOpen] = useState(false);
+
+  // Pesaje y Báscula / Patio
+  const [numeroRuma, setNumeroRuma] = useState(ticketToEdit?.numeroRuma || '');
+  const [pesoBruto, setPesoBruto] = useState(ticketToEdit?.pesoBruto || '');
+  const [pesoTara, setPesoTara] = useState(ticketToEdit?.pesoTara || '');
+  const [pesoNeto, setPesoNeto] = useState(ticketToEdit?.pesoNeto || '');
 
   // Location & Logistics setup based on ticket type:
   // Recepcion:
@@ -262,12 +270,34 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     }
   };
 
+  // Pesaje auto-calculation
+  const handlePesoBrutoChange = (val: string) => {
+    setPesoBruto(val);
+    const b = parseFloat(val);
+    const t = parseFloat(pesoTara);
+    if (!isNaN(b) && !isNaN(t)) {
+      const net = Math.max(0, b - t);
+      setPesoNeto(net.toString());
+    }
+  };
+
+  const handlePesoTaraChange = (val: string) => {
+    setPesoTara(val);
+    const b = parseFloat(pesoBruto);
+    const t = parseFloat(val);
+    if (!isNaN(b) && !isNaN(t)) {
+      const net = Math.max(0, b - t);
+      setPesoNeto(net.toString());
+    }
+  };
+
   // When switching Ticket Type:
   const handleTypeChange = (newT: TicketType) => {
     setTipo(newT);
     if (newT === 'recepcion') {
       setOrigen('');
       setDestino('N048 CN RANQUIL');
+      setNumeroGiro('');
     } else {
       setOrigen('N048 CN RANQUIL');
       setDestino('N011 CP NUEVA ALDEA [N011]');
@@ -306,11 +336,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       fechaCorta,
       anoPlantacion: String(anoPlantacion || '2010'),
       volumenMR: String(volumenMR || '0.0'),
+      numeroRuma: numeroRuma.trim().toUpperCase(),
+      pesoBruto: pesoBruto.trim(),
+      pesoTara: pesoTara.trim(),
+      pesoNeto: pesoNeto.trim(),
       origen: origen.trim(),
       destino: destino.trim(),
       zonaForestal: '',
       emseforDespacho: emseforDespacho.trim() || transportista,
-      numeroGiro: numeroGiro.trim(),
+      numeroGiro: isReception ? '' : numeroGiro.trim(),
       grua: grua.trim(),
       observaciones: observaciones.trim(),
       createdAt: ticketToEdit?.createdAt || new Date().toISOString(),
@@ -349,11 +383,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
         fechaCorta,
         anoPlantacion: String(anoPlantacion || '2010'),
         volumenMR: String(volumenMR || '0'),
+        numeroRuma: numeroRuma.trim().toUpperCase(),
+        pesoBruto: pesoBruto.trim(),
+        pesoTara: pesoTara.trim(),
+        pesoNeto: pesoNeto.trim(),
         origen: origen.trim(),
         destino: destino.trim(),
         zonaForestal: '',
         emseforDespacho: emseforDespacho.trim(),
-        numeroGiro: numeroGiro.trim(),
+        numeroGiro: isReception ? '' : numeroGiro.trim(),
         grua: grua.trim(),
         observaciones: observaciones.trim(),
         createdAt: ticketToEdit?.createdAt || new Date().toISOString(),
@@ -819,7 +857,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
               </div>
             </div>
 
-            {/* Section 4: ORIGEN Y DESTINO (CONFIGURADO POR TIPO), N° GIRO Y GRÚA (VACÍA) */}
+            {/* Section 4: ORIGEN Y DESTINO (CONFIGURADO POR TIPO), N° GIRO (SOLO DESPACHO) Y GRÚA */}
             <div className="border border-stone-200 rounded p-4 bg-white shadow-2xs">
               <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 text-[#676057]">
                 <MapPin className="w-4 h-4 text-[#BCB703]" />
@@ -828,7 +866,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                 </h3>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 ${isReception ? 'md:grid-cols-3' : 'md:grid-cols-4'} gap-4`}>
                 {/* Origen:
                     - Recepcion: En blanco para ingreso manual
                     - Despacho: 2 opciones (N048 CN RANQUIL y N817 CN DESCORTEZADO RANQUIL)
@@ -891,19 +929,22 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                   )}
                 </div>
 
-                <div>
-                  <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1">
-                    Número de Giro
-                  </label>
-                  <input
-                    id="input-ticket-numero-giro"
-                    type="text"
-                    placeholder="Ej: 1005597"
-                    value={numeroGiro}
-                    onChange={(e) => setNumeroGiro(e.target.value)}
-                    className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
-                  />
-                </div>
+                {/* Número de Giro: ÚNICAMENTE VISIBLE EN TICKETS DE DESPACHO */}
+                {!isReception && (
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1">
+                      Número de Giro
+                    </label>
+                    <input
+                      id="input-ticket-numero-giro"
+                      type="text"
+                      placeholder="Ej: 1005597"
+                      value={numeroGiro}
+                      onChange={(e) => setNumeroGiro(e.target.value)}
+                      className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
+                    />
+                  </div>
+                )}
 
                 {/* Identificador Grúa: Dejado en blanco para llenado manual por el usuario */}
                 <div>
@@ -920,15 +961,106 @@ export const TicketModal: React.FC<TicketModalProps> = ({
                   />
                 </div>
               </div>
+            </div>
+
+            {/* Section 5: PESAJE DE BÁSCULA (BRUTO, TARA, NETO) Y N° DE RUMA */}
+            <div className="border border-stone-200 rounded p-4 bg-white shadow-2xs">
+              <div className="flex items-center gap-2 mb-3 pb-2 border-b border-stone-100 text-[#676057]">
+                <Scale className="w-4 h-4 text-[#D37608]" />
+                <h3 className="text-xs font-bold uppercase tracking-wider">
+                  5. Pesaje de Báscula y Asignación de Ruma
+                </h3>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                {/* N° de Ruma */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1 flex items-center gap-1">
+                    <Layers className="w-3.5 h-3.5 text-[#BCB703]" />
+                    <span>N° de Ruma</span>
+                  </label>
+                  <input
+                    id="input-ticket-numero-ruma"
+                    type="text"
+                    placeholder="Ej: RUMA-04B"
+                    value={numeroRuma}
+                    onChange={(e) => setNumeroRuma(e.target.value)}
+                    className="w-full h-8 px-2.5 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none font-bold"
+                  />
+                </div>
+
+                {/* Peso Bruto (kg) */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1">
+                    Peso Bruto (kg)
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-ticket-peso-bruto"
+                      type="number"
+                      placeholder="Ej: 45200"
+                      value={pesoBruto}
+                      onChange={(e) => handlePesoBrutoChange(e.target.value)}
+                      className="w-full h-8 px-2.5 pr-8 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400 font-bold">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Peso Tara (kg) */}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1">
+                    Peso Tara (kg)
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-ticket-peso-tara"
+                      type="number"
+                      placeholder="Ej: 16800"
+                      value={pesoTara}
+                      onChange={(e) => handlePesoTaraChange(e.target.value)}
+                      className="w-full h-8 px-2.5 pr-8 text-xs font-mono bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-stone-400 font-bold">
+                      kg
+                    </span>
+                  </div>
+                </div>
+
+                {/* Peso Neto (kg) - Calculado automáticamente */}
+                <div className="bg-amber-50/80 p-1.5 rounded border border-amber-200">
+                  <label className="block text-[11px] font-black uppercase text-[#D37608] mb-0.5">
+                    Peso Neto (kg)
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="input-ticket-peso-neto"
+                      type="number"
+                      placeholder="0"
+                      value={pesoNeto}
+                      onChange={(e) => setPesoNeto(e.target.value)}
+                      className="w-full h-7 px-2 pr-8 text-xs font-mono font-extrabold bg-white border-2 border-[#D37608] rounded outline-none text-stone-900"
+                    />
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-[#D37608] font-black">
+                      kg
+                    </span>
+                  </div>
+                  <span className="text-[8.5px] text-stone-500 block leading-tight mt-0.5">
+                    Auto: Bruto - Tara
+                  </span>
+                </div>
+              </div>
 
               <div className="mt-3">
                 <label className="block text-[11px] font-bold uppercase text-stone-700 mb-1">
-                  Observaciones / Detalle Cubicación
+                  Observaciones / Detalle Adicional
                 </label>
                 <input
                   id="input-ticket-observaciones"
                   type="text"
-                  placeholder="Observaciones de recepción o detalle de cálculo de cubicación..."
+                  placeholder="Observaciones de recepción, pesaje o detalle de cubicación..."
                   value={observaciones}
                   onChange={(e) => setObservaciones(e.target.value)}
                   className="w-full h-8 px-2.5 text-xs bg-white border border-stone-300 rounded focus:border-[#BCB703] outline-none"

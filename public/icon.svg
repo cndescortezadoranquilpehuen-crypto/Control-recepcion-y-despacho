@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#35322f" />
+      <stop offset="100%" stop-color="#1f1d1b" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#BCB703" />
+      <stop offset="100%" stop-color="#9a9502" />
+    </linearGradient>
+    <linearGradient id="orangeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D37608" />
+      <stop offset="100%" stop-color="#ab5e04" />
+    </linearGradient>
+  </defs>
+
+  <!-- Base background rounded squircle -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="16" y="16" width="480" height="480" rx="96" fill="none" stroke="#BCB703" stroke-width="8" stroke-opacity="0.35" />
+
+  <!-- Forestry Pine Trees in background -->
+  <path d="M160 270 L195 210 L180 210 L210 160 L198 160 L225 115 L252 160 L240 160 L270 210 L255 210 L290 270 Z" fill="url(#accentGrad)" opacity="0.4" />
+  <path d="M250 250 L285 190 L270 190 L300 140 L288 140 L315 95 L342 140 L330 140 L360 190 L345 190 L380 250 Z" fill="url(#accentGrad)" opacity="0.6" />
+
+  <!-- Modern Truck Silhouette & Timber -->
+  <!-- Logs / Timber bundle on truck bed -->
+  <ellipse cx="160" cy="275" rx="30" ry="16" fill="url(#orangeGrad)" />
+  <ellipse cx="215" cy="275" rx="30" ry="16" fill="url(#orangeGrad)" />
+  <ellipse cx="188" cy="250" rx="30" ry="16" fill="url(#orangeGrad)" />
+  <path d="M130 275 L310 275 L310 295 L130 295 Z" fill="#676057" />
+
+  <!-- Truck Cab -->
+  <path d="M305 235 L365 235 L395 285 L420 295 L420 355 L305 355 Z" fill="url(#accentGrad)" />
+  <!-- Truck Window -->
+  <path d="M320 248 L360 248 L380 285 L320 285 Z" fill="#35322f" />
+  <!-- Truck Grille / Front Bumper -->
+  <rect x="410" y="320" width="16" height="28" rx="4" fill="#D37608" />
+
+  <!-- Truck Chassis -->
+  <rect x="110" y="335" width="295" height="22" rx="4" fill="#676057" />
+
+  <!-- Wheels with Rims -->
+  <circle cx="160" cy="365" r="34" fill="#18181b" stroke="#676057" stroke-width="4" />
+  <circle cx="160" cy="365" r="16" fill="#BCB703" />
+
+  <circle cx="230" cy="365" r="34" fill="#18181b" stroke="#676057" stroke-width="4" />
+  <circle cx="230" cy="365" r="16" fill="#BCB703" />
+
+  <circle cx="365" cy="365" r="34" fill="#18181b" stroke="#676057" stroke-width="4" />
+  <circle cx="365" cy="365" r="16" fill="#BCB703" />
+
+  <!-- Text / Badge -->
+  <text x="256" y="445" font-family="system-ui, -apple-system, sans-serif" font-size="34" font-weight="900" text-anchor="middle" fill="#F2EDC9" letter-spacing="3">CONTROL FORESTAL</text>
+  <text x="256" y="475" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="700" text-anchor="middle" fill="#BCB703" letter-spacing="1">RECEPCION Y DESPACHO</text>
+</svg>
