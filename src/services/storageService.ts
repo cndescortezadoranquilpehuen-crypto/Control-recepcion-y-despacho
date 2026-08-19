@@ -373,9 +373,10 @@ export class StorageService {
       const updated: TicketItem = {
         ...tickets[index],
         estado: 'activo',
-        fechaCierre: undefined,
         updatedAt: new Date().toISOString()
       };
+      delete updated.fechaCierre;
+      delete updated.cerradoPor;
       tickets[index] = updated;
       localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
       this.notifyListeners();

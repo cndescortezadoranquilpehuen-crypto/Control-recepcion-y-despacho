@@ -141,6 +141,69 @@ export const TicketModal: React.FC<TicketModalProps> = ({
     };
   }, [isOpen]);
 
+  // Synchronize form fields whenever modal opens or ticketToEdit changes
+  useEffect(() => {
+    if (isOpen) {
+      if (ticketToEdit) {
+        setTipo(ticketToEdit.tipo || defaultType);
+        setNumeroGuia(ticketToEdit.numeroGuia || '');
+        setFechaPrograma(ticketToEdit.fechaPrograma || new Date().toISOString().slice(0, 10));
+        setHora(ticketToEdit.hora || new Date().toTimeString().slice(0, 5));
+        setPatenteCamion(ticketToEdit.patenteCamion || '');
+        setSiglaCamion(ticketToEdit.siglaCamion || '');
+        setPatenteCarro(ticketToEdit.patenteCarro || '');
+        setTransportista(ticketToEdit.transportista || '');
+        setRutConductor(ticketToEdit.rutConductor || '');
+        setNombreConductor(ticketToEdit.nombreConductor || '');
+        setEspecie(ticketToEdit.especie || 'PINO RADIATA');
+        setCodigoProducto(ticketToEdit.codigoProducto || '');
+        setLargo(ticketToEdit.largo || '');
+        setFechaCorta(ticketToEdit.fechaCorta || new Date().toISOString().slice(0, 10));
+        setAnoPlantacion(ticketToEdit.anoPlantacion || '2010');
+        setVolumenMR(ticketToEdit.volumenMR || '');
+        setNumeroRuma(ticketToEdit.numeroRuma || '');
+        setPesoBruto(ticketToEdit.pesoBruto || '');
+        setPesoTara(ticketToEdit.pesoTara || '');
+        setPesoNeto(ticketToEdit.pesoNeto || '');
+        setEstado(ticketToEdit.estado || 'activo');
+        setOrigen(ticketToEdit.origen || (ticketToEdit.tipo === 'recepcion' ? '' : 'N048 CN RANQUIL'));
+        setDestino(ticketToEdit.destino || (ticketToEdit.tipo === 'recepcion' ? 'N048 CN RANQUIL' : 'N011 CP NUEVA ALDEA [N011]'));
+        setEmseforDespacho(ticketToEdit.emseforDespacho || '');
+        setNumeroGiro(ticketToEdit.numeroGiro || '');
+        setGrua(ticketToEdit.grua || '');
+        setObservaciones(ticketToEdit.observaciones || '');
+      } else {
+        setTipo(defaultType);
+        setNumeroGuia('');
+        setFechaPrograma(new Date().toISOString().slice(0, 10));
+        setHora(new Date().toTimeString().slice(0, 5));
+        setPatenteCamion('');
+        setSiglaCamion('');
+        setPatenteCarro('');
+        setTransportista('');
+        setRutConductor('');
+        setNombreConductor('');
+        setEspecie('PINO RADIATA');
+        setCodigoProducto('');
+        setLargo('');
+        setFechaCorta(new Date().toISOString().slice(0, 10));
+        setAnoPlantacion('2010');
+        setVolumenMR('');
+        setNumeroRuma('');
+        setPesoBruto('');
+        setPesoTara('');
+        setPesoNeto('');
+        setEstado('activo');
+        setOrigen(defaultType === 'recepcion' ? '' : 'N048 CN RANQUIL');
+        setDestino(defaultType === 'recepcion' ? 'N048 CN RANQUIL' : 'N011 CP NUEVA ALDEA [N011]');
+        setEmseforDespacho('');
+        setNumeroGiro('');
+        setGrua('');
+        setObservaciones('');
+      }
+    }
+  }, [isOpen, ticketToEdit, defaultType]);
+
   // Filter conductors strictly by the current transportista
   const availableConductores = useMemo(() => {
     if (!transportista) return conductoresDb;
@@ -388,13 +451,15 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       grua: grua.trim().toUpperCase(),
       observaciones: observaciones.trim().toUpperCase(),
       estado: finalEstado,
-      fechaCierre: isClosing ? (ticketToEdit?.fechaCierre || new Date().toISOString()) : undefined,
-      cerradoPor: isClosing ? (ticketToEdit?.cerradoPor || currentUser?.nombre || 'Operador') : undefined,
+      ...(isClosing ? {
+        fechaCierre: ticketToEdit?.fechaCierre || new Date().toISOString(),
+        cerradoPor: ticketToEdit?.cerradoPor || currentUser?.nombre || 'Operador'
+      } : {}),
       // Auditoría y registro de usuario (Solo administrador puede ver estos campos)
       creadoPor: ticketToEdit?.creadoPor || currentUser?.nombre || currentUser?.username || 'Operador',
-      creadoPorId: ticketToEdit?.creadoPorId || currentUser?.id,
-      creadoPorNombre: ticketToEdit?.creadoPorNombre || currentUser?.nombre,
-      modificadoPor: currentUser ? `${currentUser.nombre} (${currentUser.username})` : undefined,
+      ...(ticketToEdit?.creadoPorId || currentUser?.id ? { creadoPorId: ticketToEdit?.creadoPorId || currentUser?.id } : {}),
+      ...(ticketToEdit?.creadoPorNombre || currentUser?.nombre ? { creadoPorNombre: ticketToEdit?.creadoPorNombre || currentUser?.nombre } : {}),
+      ...(currentUser ? { modificadoPor: `${currentUser.nombre} (${currentUser.username})` } : {}),
       createdAt: ticketToEdit?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

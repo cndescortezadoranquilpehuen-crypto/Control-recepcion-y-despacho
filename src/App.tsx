@@ -82,7 +82,7 @@ export default function App() {
     setCurrentUser(user);
     setTickets(StorageService.getTickets());
     
-    if (user && user.rol !== 'admin' && (currentTab === 'database' || currentTab === 'usuarios' || currentTab === 'inicio')) {
+    if (user && user.rol !== 'admin' && currentTab === 'usuarios') {
       setCurrentTab('recepcion');
     }
 
@@ -149,7 +149,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (currentUser && currentUser.rol !== 'admin' && (currentTab === 'database' || currentTab === 'usuarios' || currentTab === 'inicio')) {
+    if (currentUser && currentUser.rol !== 'admin' && currentTab === 'usuarios') {
       setCurrentTab('recepcion');
     }
   }, [currentUser, currentTab]);

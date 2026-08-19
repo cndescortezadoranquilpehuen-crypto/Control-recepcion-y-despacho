@@ -56,8 +56,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const handleSelectQuickUser = (user: UserAccount) => {
     setUsername(user.username);
-    setPassword(user.password || '123');
+    setPassword('');
     setErrorMsg(null);
+    setTimeout(() => {
+      const passInput = document.getElementById('input-login-password');
+      if (passInput) passInput.focus();
+    }, 50);
   };
 
   const handleSubmit = (e: React.FormEvent) => {

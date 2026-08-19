@@ -87,6 +87,11 @@ function chunkArray<T>(array: T[], size: number): T[][] {
   return chunks;
 }
 
+// Helper to strip undefined values so Firestore never throws 'Unsupported field value: undefined'
+function cleanForFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 // Firestore Realtime listeners and helpers
 export const FirestoreService = {
   // Listen to Tickets collection
@@ -132,7 +137,8 @@ export const FirestoreService = {
   saveTicket: async (ticket: TicketItem): Promise<void> => {
     const path = `tickets/${ticket.id}`;
     try {
-      await setDoc(doc(db, 'tickets', ticket.id), ticket);
+      const sanitized = cleanForFirestore(ticket);
+      await setDoc(doc(db, 'tickets', ticket.id), sanitized);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
       throw err;
@@ -443,7 +449,8 @@ export const FirestoreService = {
   saveUser: async (user: UserAccount): Promise<void> => {
     const path = `users/${user.id}`;
     try {
-      await setDoc(doc(db, 'users', user.id), user);
+      const sanitized = cleanForFirestore(user);
+      await setDoc(doc(db, 'users', user.id), sanitized);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
       throw err;

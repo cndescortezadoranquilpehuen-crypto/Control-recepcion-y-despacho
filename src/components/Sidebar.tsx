@@ -66,21 +66,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       {/* Navigation */}
       <nav id="sidebar-nav" className="flex-1 p-3 space-y-1 overflow-y-auto">
-        {/* Inicio - Only for admin or general overview */}
-        {isAdmin && (
-          <button
-            id="btn-nav-inicio"
-            onClick={() => setCurrentTab('inicio')}
-            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
-              currentTab === 'inicio' 
-                ? 'bg-[#676057] text-[#F2EDC9] shadow-inner' 
-                : 'hover:bg-[#423f3b] text-neutral-300'
-            }`}
-          >
-            <Home className="w-4 h-4 text-[#BCB703]" />
-            <span>Panel General</span>
-          </button>
-        )}
+        {/* Panel General - Available for all users */}
+        <button
+          id="btn-nav-inicio"
+          onClick={() => setCurrentTab('inicio')}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
+            currentTab === 'inicio' 
+              ? 'bg-[#676057] text-[#F2EDC9] shadow-inner' 
+              : 'hover:bg-[#423f3b] text-neutral-300'
+          }`}
+        >
+          <Home className="w-4 h-4 text-[#BCB703]" />
+          <span>Panel General</span>
+        </button>
 
         {/* Monitor Menu with Dropdown - Available to both user and admin */}
         <div className="pt-2">
@@ -141,25 +139,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
 
-        {/* Database & Management - Restricted strictly to Administrator */}
-        {isAdmin ? (
-          <div className="pt-4 border-t border-[#47433f]/60 space-y-1">
-            <div className="px-3 py-1 text-[10px] font-bold tracking-widest text-[#D37608] uppercase">
-              Administración
-            </div>
-            <button
-              id="btn-nav-database"
-              onClick={() => setCurrentTab('database')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
-                currentTab === 'database' 
-                  ? 'bg-[#676057] text-[#F2EDC9]' 
-                  : 'hover:bg-[#423f3b] text-neutral-300'
-              }`}
-            >
-              <Database className="w-4 h-4 text-[#BCB703]" />
-              <span>Base de Datos Excel</span>
-            </button>
+        {/* Base de Datos Maestras - Available for viewing by all, editing by Admin */}
+        <div className="pt-3 border-t border-[#47433f]/60 space-y-1">
+          <button
+            id="btn-nav-database"
+            onClick={() => setCurrentTab('database')}
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
+              currentTab === 'database' 
+                ? 'bg-[#676057] text-[#F2EDC9]' 
+                : 'hover:bg-[#423f3b] text-neutral-300'
+            }`}
+          >
+            <Database className="w-4 h-4 text-[#BCB703]" />
+            <span>Bases de Datos</span>
+          </button>
 
+          {/* User Management - Admin only */}
+          {isAdmin && (
             <button
               id="btn-nav-usuarios"
               onClick={() => setCurrentTab('usuarios')}
@@ -172,20 +168,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <Users className="w-4 h-4 text-[#BCB703]" />
               <span>Gestión Usuarios</span>
             </button>
-          </div>
-        ) : (
-          <div className="pt-6 border-t border-[#47433f]/60 px-3">
-            <div className="p-3 bg-[#2d2a27] rounded border border-[#47433f] text-[11px] text-neutral-400 space-y-1">
-              <div className="flex items-center gap-1 text-[#BCB703] font-bold uppercase text-[10px]">
-                <Lock className="w-3 h-3" />
-                <span>Perfil Operador</span>
-              </div>
-              <p className="leading-tight text-[10px]">
-                Acceso completo a creación, edición, cubicación e impresión de tickets. Las bases maestras son administradas por el Administrador.
-              </p>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
       </nav>
 
       {/* User Info & Footer */}
