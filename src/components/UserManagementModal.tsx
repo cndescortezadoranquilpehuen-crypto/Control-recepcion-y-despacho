@@ -24,6 +24,12 @@ export const UserManagement: React.FC<UserManagementProps> = ({ currentUser }) =
 
   useEffect(() => {
     loadUsers();
+    const unsubscribe = StorageService.subscribe(() => {
+      loadUsers();
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
 
   const handleCreateUser = (e: React.FormEvent) => {

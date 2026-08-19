@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Calendar, Truck, Package, Edit3, Trash2, Tag, Printer, FileText, Scale, Layers } from 'lucide-react';
+import { Clock, Calendar, Truck, Package, Edit3, Trash2, Tag, Printer, FileText, Scale, Layers, CheckCircle2, RotateCcw } from 'lucide-react';
 import { TicketItem } from '../types';
 
 interface TicketCardProps {
@@ -7,16 +7,23 @@ interface TicketCardProps {
   onEdit: (ticket: TicketItem) => void;
   onDelete: (id: string) => void;
   onPrint?: (ticket: TicketItem) => void;
+  onCloseTicket?: (id: string) => void;
+  onReopenTicket?: (id: string) => void;
 }
 
 export const TicketCard: React.FC<TicketCardProps> = ({
   ticket,
   onEdit,
   onDelete,
-  onPrint
+  onPrint,
+  onCloseTicket,
+  onReopenTicket
 }) => {
   const isReception = ticket.tipo === 'recepcion';
-  const accentBorderColor = isReception ? 'bg-[#1e3a8a]' : 'bg-[#D37608]';
+  const isClosed = ticket.estado === 'cerrado';
+  const accentBorderColor = isClosed 
+    ? 'bg-emerald-600' 
+    : (isReception ? 'bg-[#1e3a8a]' : 'bg-[#D37608]');
   const tagBg = isReception ? 'bg-blue-50 text-blue-800' : 'bg-amber-50 text-amber-900';
 
   // Format date display (e.g., DD-MM-YYYY)
@@ -42,7 +49,9 @@ export const TicketCard: React.FC<TicketCardProps> = ({
     <div
       id={`ticket-card-${ticket.id}`}
       onClick={handleCardClick}
-      className="group relative bg-white border-2 border-stone-200 hover:border-[#BCB703] rounded shadow-xs hover:shadow-md transition-all duration-150 overflow-hidden flex flex-col cursor-pointer active:scale-[0.99]"
+      className={`group relative bg-white border-2 ${
+        isClosed ? 'border-emerald-200 opacity-90' : 'border-stone-200'
+      } hover:border-[#BCB703] rounded shadow-xs hover:shadow-md transition-all duration-150 flex flex-col cursor-pointer active:scale-[0.99] overflow-hidden`}
       title="Haga clic para ver o editar los datos del ticket"
     >
       {/* Left colored bar accent */}
@@ -54,9 +63,20 @@ export const TicketCard: React.FC<TicketCardProps> = ({
         {/* Top Header: Patente(Sigla) & Guías N° (Prominente) */}
         <div className="flex items-start justify-between border-b border-stone-100 pb-2 mb-1.5">
           <div>
-            <span className="text-sm font-black text-stone-900 tracking-wide block">
-              {ticket.patenteCamion || 'SIN PATENTE'}{ticket.siglaCamion ? ` (${ticket.siglaCamion})` : ''}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-sm font-black text-stone-900 tracking-wide block">
+                {ticket.patenteCamion || 'SIN PATENTE'}{ticket.siglaCamion ? ` (${ticket.siglaCamion})` : ''}
+              </span>
+              {isClosed ? (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold bg-emerald-100 text-emerald-800 rounded">
+                  CERRADO
+                </span>
+              ) : (
+                <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-100 text-amber-800 rounded animate-pulse">
+                  EN PATIO
+                </span>
+              )}
+            </div>
             {ticket.patenteCarro && (
               <span className="text-[10px] text-stone-500 font-mono font-bold block">
                 Carro: {ticket.patenteCarro}
@@ -161,11 +181,44 @@ export const TicketCard: React.FC<TicketCardProps> = ({
 
         {/* Action quick buttons on footer */}
         <div className="mt-2 pt-1.5 flex items-center justify-between border-t border-stone-100">
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${tagBg}`}>
-            {isReception ? 'Recepción' : 'Despacho'}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${tagBg}`}>
+              {isReception ? 'Recepción' : 'Despacho'}
+            </span>
+          </div>
 
           <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            {/* Botón para Cerrar Evento / Enviar al Panel General */}
+            {!isClosed && onCloseTicket && (
+              <button
+                id={`btn-close-ticket-${ticket.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseTicket(ticket.id);
+                }}
+                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10.5px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                title="Cerrar ticket de la ventana activa y enviarlo al Panel General"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                <span>Cerrar</span>
+              </button>
+            )}
+
+            {isClosed && onReopenTicket && (
+              <button
+                id={`btn-reopen-ticket-${ticket.id}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onReopenTicket(ticket.id);
+                }}
+                className="px-2 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded text-[10.5px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                title="Reabrir ticket a la ventana activa"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reabrir</span>
+              </button>
+            )}
+
             {onPrint && (
               <button
                 id={`btn-print-ticket-${ticket.id}`}
@@ -197,7 +250,7 @@ export const TicketCard: React.FC<TicketCardProps> = ({
                 onDelete(ticket.id);
               }}
               className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors"
-              title="Eliminar evento"
+              title="Eliminar evento permanentemente"
             >
               <Trash2 className="w-3.5 h-3.5" />
             </button>

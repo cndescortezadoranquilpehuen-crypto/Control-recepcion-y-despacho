@@ -52,6 +52,10 @@ export interface TicketItem {
   numeroGiro: string;
   grua: string;
   observaciones: string;
+  // Estado del Evento: 'activo' (en patio / espera en ventana de tickets) o 'cerrado' (finalizado / archivado en panel general)
+  estado?: 'activo' | 'cerrado';
+  fechaCierre?: string;
+  cerradoPor?: string;
   // Auditoría y Trazabilidad (Solo visible para Administrador)
   creadoPor?: string;
   creadoPorId?: string;

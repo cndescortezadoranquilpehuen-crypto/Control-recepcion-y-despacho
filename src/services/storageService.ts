@@ -33,11 +33,12 @@ export class StorageService {
   // --- INITIALIZE ALL FROM FIRESTORE ---
   static async syncWithFirestore(): Promise<void> {
     try {
-      const [tickets, patentes, conductores, productos] = await Promise.all([
+      const [tickets, patentes, conductores, productos, users] = await Promise.all([
         FirestoreService.fetchTicketsOnce(),
         FirestoreService.fetchPatentesOnce(),
         FirestoreService.fetchConductoresOnce(),
-        FirestoreService.fetchProductosOnce()
+        FirestoreService.fetchProductosOnce(),
+        FirestoreService.fetchUsersOnce()
       ]);
 
       if (tickets.length > 0) {
@@ -51,6 +52,12 @@ export class StorageService {
       }
       if (productos.length > 0) {
         localStorage.setItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(productos));
+      }
+      if (users.length > 0) {
+        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      } else {
+        // If Firestore has no users yet, seed initial users
+        INITIAL_USERS.forEach(u => FirestoreService.saveUser(u).catch(() => {}));
       }
       this.notifyListeners();
     } catch (err) {
@@ -322,11 +329,12 @@ export class StorageService {
     const tickets = this.getTickets();
     const existingIdx = tickets.findIndex(t => t.id === ticket.id);
     let updatedItem: TicketItem;
+    const estado = ticket.estado || 'activo';
     if (existingIdx >= 0) {
-      updatedItem = { ...ticket, updatedAt: new Date().toISOString() };
+      updatedItem = { ...ticket, estado, updatedAt: new Date().toISOString() };
       tickets[existingIdx] = updatedItem;
     } else {
-      updatedItem = { ...ticket, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+      updatedItem = { ...ticket, estado, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
       tickets.unshift(updatedItem);
     }
     localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
@@ -334,6 +342,47 @@ export class StorageService {
     FirestoreService.saveTicket(updatedItem).catch(err => {
       console.warn('Could not sync ticket to Firestore:', err);
     });
+  }
+
+  // Cerrar evento de Recepción/Despacho y trasladarlo al Panel General
+  static closeTicket(id: string, closedByName?: string): void {
+    const tickets = this.getTickets();
+    const index = tickets.findIndex(t => t.id === id);
+    if (index >= 0) {
+      const updated: TicketItem = {
+        ...tickets[index],
+        estado: 'cerrado',
+        fechaCierre: new Date().toISOString(),
+        cerradoPor: closedByName || 'Usuario Actual',
+        updatedAt: new Date().toISOString()
+      };
+      tickets[index] = updated;
+      localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+      this.notifyListeners();
+      FirestoreService.saveTicket(updated).catch(err => {
+        console.warn('Could not sync closed ticket to Firestore:', err);
+      });
+    }
+  }
+
+  // Reabrir evento cerrado de vuelta a la cola activa de Recepción/Despacho
+  static reopenTicket(id: string): void {
+    const tickets = this.getTickets();
+    const index = tickets.findIndex(t => t.id === id);
+    if (index >= 0) {
+      const updated: TicketItem = {
+        ...tickets[index],
+        estado: 'activo',
+        fechaCierre: undefined,
+        updatedAt: new Date().toISOString()
+      };
+      tickets[index] = updated;
+      localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+      this.notifyListeners();
+      FirestoreService.saveTicket(updated).catch(err => {
+        console.warn('Could not sync reopened ticket to Firestore:', err);
+      });
+    }
   }
 
   static deleteTicket(id: string): void {
@@ -350,8 +399,6 @@ export class StorageService {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.USERS);
       if (!data) {
-        localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
-        INITIAL_USERS.forEach(u => FirestoreService.saveUser(u).catch(() => {}));
         return INITIAL_USERS;
       }
       const parsed = JSON.parse(data);
@@ -380,16 +427,19 @@ export class StorageService {
     const users = this.getUsers().filter(u => u.id !== id);
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
     this.notifyListeners();
+    FirestoreService.deleteUser(id).catch(err => {
+      console.warn('Could not delete user from Firestore:', err);
+    });
   }
 
   // --- AUTH CURRENT USER ---
   static getCurrentUser(): UserAccount | null {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.AUTH);
-      if (!data) return INITIAL_USERS[1]; // default to reception user
+      if (!data) return null; // No active user session -> Login required
       return JSON.parse(data);
     } catch {
-      return INITIAL_USERS[1];
+      return null;
     }
   }
 
@@ -399,6 +449,7 @@ export class StorageService {
     } else {
       localStorage.removeItem(STORAGE_KEYS.AUTH);
     }
+    this.notifyListeners();
   }
 
   // --- EXCEL PARSER ---

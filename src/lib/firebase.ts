@@ -426,6 +426,19 @@ export const FirestoreService = {
     }
   },
 
+  // Fetch Users Once
+  fetchUsersOnce: async (): Promise<UserAccount[]> => {
+    try {
+      const snap = await getDocs(collection(db, 'users'));
+      const items: UserAccount[] = [];
+      snap.forEach((d) => items.push(d.data() as UserAccount));
+      return items;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.GET, 'users');
+      return [];
+    }
+  },
+
   // Save User
   saveUser: async (user: UserAccount): Promise<void> => {
     const path = `users/${user.id}`;
@@ -433,6 +446,17 @@ export const FirestoreService = {
       await setDoc(doc(db, 'users', user.id), user);
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
+      throw err;
+    }
+  },
+
+  // Delete User
+  deleteUser: async (userId: string): Promise<void> => {
+    const path = `users/${userId}`;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, path);
       throw err;
     }
   }

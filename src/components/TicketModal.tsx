@@ -18,7 +18,8 @@ import {
   Plus,
   ShieldCheck,
   UserCheck,
-  Trees
+  Trees,
+  CheckCircle2
 } from 'lucide-react';
 import { ConductorItem, PatenteItem, ProductoItem, TicketItem, TicketType, UserAccount } from '../types';
 import { StorageService } from '../services/storageService';
@@ -91,6 +92,7 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   const [pesoBruto, setPesoBruto] = useState(ticketToEdit?.pesoBruto || '');
   const [pesoTara, setPesoTara] = useState(ticketToEdit?.pesoTara || '');
   const [pesoNeto, setPesoNeto] = useState(ticketToEdit?.pesoNeto || '');
+  const [estado, setEstado] = useState<'activo' | 'cerrado'>(ticketToEdit?.estado || 'activo');
 
   // Location & Logistics setup based on ticket type:
   // Recepcion:
@@ -339,8 +341,8 @@ export const TicketModal: React.FC<TicketModalProps> = ({
   };
 
   // Submit & Save
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = (e: React.FormEvent, overrideStatus?: 'activo' | 'cerrado') => {
+    if (e && e.preventDefault) e.preventDefault();
 
     // El número de guía es obligatorio en Recepción, pero en Despacho es opcional (se llena al final)
     if (isReception && !numeroGuia.trim()) {
@@ -352,6 +354,9 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       alert('Por favor ingrese la PATENTE DEL CAMIÓN.');
       return;
     }
+
+    const finalEstado = overrideStatus || estado || 'activo';
+    const isClosing = finalEstado === 'cerrado';
 
     const ticketData: TicketItem = {
       id: ticketToEdit ? ticketToEdit.id : `t-${Date.now()}`,
@@ -382,6 +387,9 @@ export const TicketModal: React.FC<TicketModalProps> = ({
       numeroGiro: isReception ? '' : numeroGiro.trim().toUpperCase(),
       grua: grua.trim().toUpperCase(),
       observaciones: observaciones.trim().toUpperCase(),
+      estado: finalEstado,
+      fechaCierre: isClosing ? (ticketToEdit?.fechaCierre || new Date().toISOString()) : undefined,
+      cerradoPor: isClosing ? (ticketToEdit?.cerradoPor || currentUser?.nombre || 'Operador') : undefined,
       // Auditoría y registro de usuario (Solo administrador puede ver estos campos)
       creadoPor: ticketToEdit?.creadoPor || currentUser?.nombre || currentUser?.username || 'Operador',
       creadoPorId: ticketToEdit?.creadoPorId || currentUser?.id,
@@ -1216,24 +1224,36 @@ export const TicketModal: React.FC<TicketModalProps> = ({
               )}
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
               <button
                 type="button"
                 id="btn-cancelar-modal"
                 onClick={onClose}
-                className="px-4 py-2 bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 rounded text-xs font-semibold uppercase tracking-wider transition-colors"
+                className="px-3.5 py-2 bg-white border border-stone-300 hover:bg-stone-50 text-stone-700 rounded text-xs font-semibold uppercase tracking-wider transition-colors"
               >
                 Cancelar
               </button>
 
               <button
                 type="button"
-                id="btn-guardar-evento"
-                onClick={handleSave}
-                className="px-6 py-2 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 rounded text-xs font-extrabold uppercase tracking-wider transition-colors flex items-center gap-2 shadow"
+                id="btn-guardar-activo"
+                onClick={(e) => handleSave(e, 'activo')}
+                className="px-4 py-2 bg-[#BCB703] hover:bg-[#a8a302] text-stone-900 rounded text-xs font-extrabold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow"
+                title="Guardar en la ventana activa (Recepción/Despacho)"
               >
                 <Save className="w-4 h-4" />
-                <span>Guardar Evento</span>
+                <span>Guardar en Patio (Activo)</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-guardar-cerrar"
+                onClick={(e) => handleSave(e, 'cerrado')}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-xs font-extrabold uppercase tracking-wider transition-colors flex items-center gap-1.5 shadow"
+                title="Guardar como finalizado y trasladar al Panel General"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Guardar y Cerrar (A Panel General)</span>
               </button>
             </div>
           </div>
